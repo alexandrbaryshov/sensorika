@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Сенсорика — творческая мастерская в Чебоксарах: гончарный круг, лепка, гипс</title>
+  <meta name="description" content="Гончарный круг, ручная лепка из глины, гипс, свидания для двоих и творческие дни рождения для детей. Творческая мастерская «Сенсорика», Чебоксары.">
+  <meta name="theme-color" content="#1f1424">
+  <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+  <!-- шрифты первого экрана: заголовок, подпись, текст панели игры -->
+  <link rel="preload" href="assets/fonts/ledger-cyrillic-400.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/badscript-cyrillic-400.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/golos-cyrillic-var.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<a class="skip-link" href="#directions">Перейти к содержанию</a>
+
+<!-- Иконки этапов: силуэты в манере чернофигурной росписи -->
+<header class="masthead" id="top">
+  <a class="brand" href="#top" aria-label="Сенсорика, творческая мастерская — наверх">
+    <img class="brand-mark" src="assets/img/logo-mark.webp" width="280" height="280" alt="">
+    <span class="brand-text"><span class="brand-name">Сенсорика</span><span class="brand-tag">творческая мастерская</span></span>
+  </a>
+  <nav class="nav" aria-label="Разделы">
+    <a href="#directions">Направления</a>
+    <a href="#date">Свидание</a>
+    <a href="#kids">Детям</a>
+    <a href="#prices">Цены</a>
+    <a href="#contacts">Контакты</a>
+  </nav>
+  <a class="btn btn-glaze btn-small" data-book href="#contacts">Записаться</a>
+  <details class="nav-mobile">
+    <summary aria-label="Меню"><span></span><span></span><span></span></summary>
+    <nav aria-label="Разделы">
+      <a href="#directions">Направления</a>
+      <a href="#date">Свидание для двоих</a>
+      <a href="#kids">Детям и дни рождения</a>
+      <a href="#process">Как всё устроено</a>
+      <a href="#prices">Цены</a>
+      <a href="#gift">Сертификаты</a>
+      <a href="#contacts">Контакты</a>
+    </nav>
+  </details>
+</header>
+
+<main>
+
+<!-- ============ 1. Игра ============ -->
+<section class="hero" id="hero" aria-labelledby="hero-title">
+  <h1 class="hero-title" id="hero-title"><span class="arc" data-arc>Слепите вазу прямо сейчас</span></h1>
+  <p class="hero-sub">А затем воплотите её в&nbsp;жизнь в&nbsp;нашей мастерской.</p>
+
+  <ol class="steps-rail" id="stepsRail" aria-label="Этапы игры">
+    <li data-step="lump" class="is-active"><span class="medal" aria-hidden="true"><img src="assets/plates/medal-lump.webp" width="200" height="200" alt=""></span><span class="step-name">Ком</span></li>
+    <li data-step="shape"><span class="medal" aria-hidden="true"><img src="assets/plates/medal-wheel.webp" width="200" height="200" alt=""></span><span class="step-name">Круг</span></li>
+    <li data-step="fire"><span class="medal" aria-hidden="true"><img src="assets/plates/medal-kiln.webp" width="200" height="200" alt=""></span><span class="step-name">Печь</span></li>
+    <li data-step="paint"><span class="medal" aria-hidden="true"><img src="assets/plates/medal-paint.webp" width="200" height="200" alt=""></span><span class="step-name">Роспись</span></li>
+    <li data-step="done"><span class="medal" aria-hidden="true"><img src="assets/plates/medal-amphora.webp" width="200" height="200" alt=""></span><span class="step-name">Готово</span></li>
+  </ol>
+
+  <div class="niche">
+    <div class="wall-glow" aria-hidden="true"></div>
+    <div class="stage-wall" aria-hidden="true"></div>
+    <div class="stage" id="stage">
+      <canvas id="wheel" aria-label="Гончарный круг: интерактивная 3D-сцена"></canvas>
+      <div class="cursor-ring" id="cursorRing" aria-hidden="true"></div>
+      <p class="stage-tip is-hidden" id="stageTip" aria-hidden="true"></p>
+      <p class="stage-fallback" id="stageFallback" hidden>Ваш браузер не показывает 3D. Ничего страшного: настоящая глина всё равно лучше.</p>
+    </div>
+    <img class="arch" src="assets/plates/arch-820.webp" srcset="assets/plates/arch-560.webp 560w, assets/plates/arch-820.webp 820w, assets/plates/arch-1200.webp 1200w" sizes="(min-width: 1100px) 33vw, min(100vw, 440px)" width="1894" height="2048" alt="" aria-hidden="true" fetchpriority="high">
+    <div class="candle-light candle-light-left" aria-hidden="true"></div>
+    <div class="candle-light candle-light-right" aria-hidden="true"></div>
+    <div class="candles candles-left" aria-hidden="true"><img src="assets/plates/candles-left.webp" srcset="assets/plates/candles-left-360.webp 360w, assets/plates/candles-left.webp 640w" sizes="(min-width: 1100px) 17vw, min(42vw, 200px)" width="640" height="640" alt=""><span class="flame" style="--x:36.8%;--y:18.6%"></span><span class="flame" style="--x:64.1%;--y:40%;--d:-1.3s"></span></div>
+    <div class="candles candles-right" aria-hidden="true"><img src="assets/plates/candles-right.webp" srcset="assets/plates/candles-right-360.webp 360w, assets/plates/candles-right.webp 640w" sizes="(min-width: 1100px) 17vw, min(42vw, 200px)" width="640" height="640" alt=""><span class="flame" style="--x:37%;--y:43.6%;--d:-.7s"></span><span class="flame" style="--x:64.1%;--y:22.9%;--d:-2.1s"></span></div>
+  </div>
+
+  <div class="game-panel" id="gamePanel" aria-live="polite">
+    <p class="game-step" id="gameStep">Этап 1 из 5</p>
+    <h2 class="game-title" id="gameTitle">Ком глины</h2>
+    <p class="game-hint" id="gameHint">Глина легла на круг неровно, и её бьёт из стороны в сторону. <strong>Зажмите кнопку или саму глину</strong>, чтобы отцентровать ком.</p>
+    <div class="game-controls" id="gameControls"></div>
+  </div>
+
+  <div class="hero-actions">
+    <a class="btn btn-glaze hero-cta" data-book href="#contacts">Записаться в мастерскую</a>
+    <a class="link-skip" href="#directions">Пропустить игру <span class="ico ico-arrow ico-down" aria-hidden="true"></span></a>
+  </div>
+</section>
+
+<div class="band-ornament" aria-hidden="true"></div>
+
+<!-- ============ 2. Направления ============ -->
+<section class="directions" id="directions" aria-labelledby="dir-title">
+  <div class="wrap">
+    <div class="section-head">
+      <h2 id="dir-title">Чем заняться в&nbsp;мастерской</h2>
+      <p class="hand">выбирайте по&nbsp;настроению</p>
+    </div>
+    <ol class="dir-list" id="dirList"><!-- заполняется из data/site.js --></ol>
+    <p class="dir-more">А ещё в «Сенсорике» рисуют картины, расписывают футболки и шоперы и делают свечи. Полный каталог есть <a href="https://vk.ru/uslugi-200653634" target="_blank" rel="noopener">в&nbsp;услугах ВКонтакте</a>.</p>
+  </div>
+</section>
+
+<!-- ============ 3. Свидание ============ -->
+<section class="date" id="date" aria-labelledby="date-title">
+  <div class="wrap date-grid">
+    <figure class="date-photo">
+      <img src="assets/img/gallery/date.webp" srcset="assets/img/gallery/date-480.webp 480w, assets/img/gallery/date.webp 960w" sizes="(max-width: 900px) min(100vw, 400px), 400px" width="960" height="1280" alt="Пара в фартуках после свидания за гончарным кругом, руки и лица в глине" loading="lazy" decoding="async">
+    </figure>
+    <div class="date-copy">
+      <h2 id="date-title">Свидание за гончарным кругом</h2>
+      <p class="hand hand-lav">Лепим любовь своими руками</p>
+      <p>Один круг, четыре руки и&nbsp;тёплый вечер. Мастер покажет, как центровать глину и&nbsp;вытягивать стенки, а&nbsp;дальше всё зависит от&nbsp;вас двоих. Изделие останется на&nbsp;память о&nbsp;вечере.</p>
+      <dl class="facts">
+        <div><dt>Стоимость</dt><dd data-fill="service:date:price"></dd></div>
+        <div><dt>Изделие готово</dt><dd data-fill="studio:readyIn"></dd></div>
+      </dl>
+      <p class="date-more">С фотосессией: <span data-fill="price:Свидания:1"></span>. А&nbsp;ещё есть арт-свидание за&nbsp;холстами: <span data-fill="price:Свидания:2"></span>.</p>
+      <a class="btn btn-glaze" data-book href="#contacts">Забронировать вечер</a>
+    </div>
+  </div>
+</section>
+
+<div class="band-ornament band-ornament-sm" aria-hidden="true"></div>
+
+<!-- ============ 4. Детям ============ -->
+<section class="kids" id="kids" aria-labelledby="kids-title">
+  <div class="wrap">
+    <div class="section-head">
+      <h2 id="kids-title">Творческий день рождения</h2>
+      <p class="hand">мы всё продумали за&nbsp;вас</p>
+    </div>
+    <p class="kids-lead">Праздник «под ключ»: аниматор, мастер-класс с&nbsp;настоящим художником или мастером, фотограф и&nbsp;студия на&nbsp;три часа. Ребята уносят домой то, что сделали сами.</p>
+
+    <div class="packages" id="packages" role="region" aria-label="Сравнение пакетов" tabindex="0"><!-- таблица из data/site.js --></div>
+    <p class="packages-note" id="packagesNote"></p>
+
+    <div class="kids-classes">
+      <h3>Мастер-классы для школьников</h3>
+      <p>Ручная лепка, рисование картин, роспись футболок и&nbsp;шоперов, свечи и&nbsp;гипсовые сувениры. Можно прийти классом или группой.</p>
+      <a class="btn btn-ink" data-book href="#contacts">Узнать расписание</a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 5. Как устроено ============ -->
+<section class="process" id="process" aria-labelledby="process-title">
+  <div class="wrap">
+    <div class="section-head">
+      <h2 id="process-title">По-настоящему всё так&nbsp;же, только руками</h2>
+    </div>
+    <ol class="process-frieze">
+      <li><span class="p-medal" aria-hidden="true"><img src="assets/plates/medal-lump.webp" width="200" height="200" alt="" loading="lazy"></span><h3>Глина</h3><p>Мастер даёт подготовленный ком и&nbsp;показывает, с&nbsp;чего начать.</p></li>
+      <li><span class="p-medal" aria-hidden="true"><img src="assets/plates/medal-wheel.webp" width="200" height="200" alt="" loading="lazy"></span><h3>Круг или стол</h3><p>Формуете изделие на&nbsp;гончарном круге или лепите руками.</p></li>
+      <li><span class="p-medal" aria-hidden="true"><img src="assets/plates/medal-kiln.webp" width="200" height="200" alt="" loading="lazy"></span><h3>Сушка и&nbsp;обжиг</h3><p>Изделие сохнет, потом его обжигают в&nbsp;печи. Это делает мастерская.</p></li>
+      <li><span class="p-medal" aria-hidden="true"><img src="assets/plates/medal-paint.webp" width="200" height="200" alt="" loading="lazy"></span><h3>Роспись</h3><p>Ангобы, глазури, краски: выбираете цвет и&nbsp;узор.</p></li>
+      <li><span class="p-medal" aria-hidden="true"><img src="assets/plates/medal-amphora.webp" width="200" height="200" alt="" loading="lazy"></span><h3>Готово</h3><p>Забираете своё изделие. Срок: <span data-fill="studio:readyIn"></span></p></li>
+    </ol>
+  </div>
+</section>
+
+<div class="band band-meander band-on-lav" aria-hidden="true"></div>
+
+<!-- ============ 6. Галерея ============ -->
+<section class="gallery" id="gallery" aria-labelledby="gallery-title">
+  <div class="wrap">
+    <div class="section-head">
+      <h2 id="gallery-title">Работы гостей мастерской</h2>
+      <p class="hand">каждая — единственная</p>
+    </div>
+    <div class="gallery-grid">
+      <figure class="slot slot-photo slot-tall"><img src="assets/img/gallery/wheel-bowl.webp" srcset="assets/img/gallery/wheel-bowl-480.webp 480w, assets/img/gallery/wheel-bowl.webp 788w" sizes="(max-width: 900px) 50vw, 25vw" width="788" height="1400" alt="Руки в глине держат чашу на гончарном круге" loading="lazy" decoding="async" style="object-position:50% 55%"></figure>
+      <figure class="slot slot-photo"><img src="assets/img/gallery/plaster-figures.webp" srcset="assets/img/gallery/plaster-figures-480.webp 480w, assets/img/gallery/plaster-figures.webp 788w" sizes="(max-width: 900px) 50vw, 25vw" width="788" height="1400" alt="Две расписанные тарелки: цветы и машинки" loading="lazy" decoding="async" style="object-position:50% 22%"></figure>
+      <figure class="slot slot-photo"><img src="assets/img/gallery/fired-shelf.webp" srcset="assets/img/gallery/fired-shelf-480.webp 480w, assets/img/gallery/fired-shelf.webp 960w" sizes="(max-width: 900px) 50vw, 25vw" width="960" height="1211" alt="Полка с работами после обжига: тыквы-подсвечники, вазы, кружка" loading="lazy" decoding="async" style="object-position:30% 45%"></figure>
+      <figure class="slot slot-photo slot-wide"><img src="assets/img/gallery/kids-modelling.webp" srcset="assets/img/gallery/kids-modelling-480.webp 480w, assets/img/gallery/kids-modelling.webp 960w" sizes="(max-width: 900px) 100vw, 50vw" width="960" height="574" alt="Дети лепят из глины за общим столом вместе с мастером" loading="lazy" decoding="async" style="object-position:50% 45%"></figure>
+      <figure class="slot slot-photo slot-wide"><img src="assets/img/gallery/studio-interior.webp" srcset="assets/img/gallery/studio-interior-480.webp 480w, assets/img/gallery/studio-interior.webp 960w" sizes="(max-width: 900px) 100vw, 50vw" width="960" height="720" alt="Группа детей в фартуках с мастером на фоне стены с картинами" loading="lazy" decoding="async" style="object-position:50% 58%"></figure>
+      <figure class="slot slot-photo slot-tall"><img src="assets/img/gallery/painting.webp" srcset="assets/img/gallery/painting-480.webp 480w, assets/img/gallery/painting.webp 960w" sizes="(max-width: 900px) 50vw, 25vw" width="960" height="1280" alt="Гостьи рисуют акрилом на холсте, мастер помогает" loading="lazy" decoding="async" style="object-position:30% 50%"></figure>
+      <figure class="slot slot-photo"><img src="assets/img/gallery/date.webp" srcset="assets/img/gallery/date-480.webp 480w, assets/img/gallery/date.webp 960w" sizes="(max-width: 900px) 50vw, 25vw" width="960" height="1280" alt="Пара на свидании в мастерской, лица в глине" loading="lazy" decoding="async" style="object-position:50% 22%"></figure>
+      <figure class="slot slot-photo"><img src="assets/img/gallery/master-wheel.webp" srcset="assets/img/gallery/master-wheel-480.webp 480w, assets/img/gallery/master-wheel.webp 934w" sizes="(max-width: 900px) 50vw, 25vw" width="934" height="1400" alt="Мастер ведёт руки ученицы на гончарном круге" loading="lazy" decoding="async" style="object-position:50% 55%"></figure>
+    </div>
+    <a class="btn btn-ink" href="https://vk.ru/sensorika21" target="_blank" rel="noopener"><span class="ico ico-vk" aria-hidden="true"></span> Больше работ во&nbsp;ВКонтакте</a>
+  </div>
+</section>
+
+<!-- ============ 7. Цены ============ -->
+<section class="prices" id="prices" aria-labelledby="prices-title">
+  <div class="wrap prices-grid">
+    <div class="section-head">
+      <h2 id="prices-title">Цены</h2>
+      <p class="prices-aside">Свободное время и&nbsp;актуальные цены смотрите в&nbsp;онлайн-записи. Если сомневаетесь, что выбрать, напишите нам во&nbsp;ВКонтакте.</p>
+      <a class="btn btn-glaze" data-book href="#contacts">Онлайн-запись</a>
+    </div>
+    <div class="price-list" id="priceList"><!-- из data/site.js --></div>
+  </div>
+</section>
+
+<!-- ============ 8. Сертификат ============ -->
+<section class="gift" id="gift" aria-labelledby="gift-title">
+  <div class="wrap gift-grid">
+    <div class="certificate" aria-hidden="true">
+      <div class="certificate-inner">
+        <span class="cert-kind">Подарочный сертификат</span>
+        <span class="cert-name">Сенсорика</span>
+        <span class="cert-line">вечер с глиной для&nbsp;того, кого вы любите</span>
+      </div>
+    </div>
+    <div class="gift-copy">
+      <h2 id="gift-title">Подарите вечер с&nbsp;глиной</h2>
+      <p>Сертификат на&nbsp;мастер-класс или свидание за&nbsp;гончарным кругом. Подарок, который потом можно поставить на&nbsp;полку.</p>
+      <p class="gift-price">Стоимость: на&nbsp;любую сумму</p>
+      <a class="btn btn-glaze" href="https://vk.me/sensorika21" target="_blank" rel="noopener">Заказать сертификат</a>
+    </div>
+  </div>
+</section>
+
+<div class="band-ornament band-ornament-sm" aria-hidden="true"></div>
+
+<!-- ============ 9. Отзывы ============ -->
+<section class="reviews" id="reviews" aria-labelledby="reviews-title">
+  <div class="wrap reviews-grid">
+    <div class="section-head">
+      <h2 id="reviews-title">Что говорят гости</h2>
+      <p>Отзывы с&nbsp;Яндекс Карт, без редактуры.</p>
+      <a class="btn btn-ghost" href="https://yandex.ru/maps/org/146453008590/reviews/" target="_blank" rel="noopener">Все отзывы на&nbsp;Картах</a>
+    </div>
+    <div class="reviews-frame">
+      <iframe title="Отзывы о мастерской «Сенсорика» на Яндекс Картах" src="https://yandex.ru/maps-reviews-widget/146453008590?comments" loading="lazy"></iframe>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 10. FAQ ============ -->
+<section class="faq" id="faq" aria-labelledby="faq-title">
+  <div class="wrap faq-grid">
+    <h2 id="faq-title">Частые вопросы</h2>
+    <div class="faq-list">
+      <details>
+        <summary>Я никогда не лепил. Получится?</summary>
+        <p>Да. Мастер показывает каждое движение и&nbsp;помогает, если глина капризничает. Первый раз на&nbsp;круге у&nbsp;всех немного кривой, и&nbsp;в&nbsp;этом его прелесть.</p>
+      </details>
+      <details>
+        <summary>Что надеть?</summary>
+        <p>Удобную одежду, которую не&nbsp;жалко. Глина отстирывается, но&nbsp;брызги на&nbsp;гончарном круге неизбежны. Фартуки выдаём в&nbsp;мастерской.</p>
+      </details>
+      <details>
+        <summary>Когда можно забрать изделие?</summary>
+        <p>Изделие должно высохнуть и&nbsp;пройти обжиг. Срок: <span data-fill="studio:readyIn"></span>.</p>
+      </details>
+      <details>
+        <summary>С какого возраста можно детям?</summary>
+        <p>Детские мастер-классы и&nbsp;праздники рассчитаны на&nbsp;школьный возраст. Ребятам доступны ручная лепка, рисование и&nbsp;роспись.</p>
+      </details>
+      <details>
+        <summary>Как записаться?</summary>
+        <p>Через онлайн-запись YClients или сообщением во&nbsp;ВКонтакте. Ответим и&nbsp;подберём время.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 11. Контакты ============ -->
+<section class="contacts" id="contacts" aria-labelledby="contacts-title">
+  <div class="wrap contacts-grid">
+    <div class="contacts-copy">
+      <h2 id="contacts-title">Приходите лепить</h2>
+      <dl class="facts facts-contacts">
+        <div><dt>Адрес</dt><dd><span data-fill="studio:city"></span>, <span data-fill="studio:address"></span></dd></div>
+        <div><dt>Телефон</dt><dd data-fill="studio:phone"></dd></div>
+        <div><dt>Часы работы</dt><dd data-fill="studio:hours"></dd></div>
+      </dl>
+      <div class="contacts-actions">
+        <a class="btn btn-glaze" data-book href="#contacts">Онлайн-запись</a>
+        <a class="btn btn-ghost" href="https://vk.me/sensorika21" target="_blank" rel="noopener"><span class="ico ico-vk" aria-hidden="true"></span> Написать во&nbsp;ВКонтакте</a>
+      </div>
+    </div>
+    <a class="map-frame" href="https://yandex.ru/maps/org/146453008590/" target="_blank" rel="noopener">
+      <img src="https://static-maps.yandex.ru/1.x/?ll=47.288913,56.091397&amp;z=16&amp;l=map&amp;size=650,450&amp;scale=2&amp;pt=47.288913,56.091397,pm2rdl&amp;lang=ru_RU" width="650" height="450" alt="Мастерская «Сенсорика» на карте: Эгерский бульвар, 42" loading="lazy">
+      <span class="map-open">Открыть в&nbsp;Яндекс Картах <span class="ico ico-arrow" aria-hidden="true"></span></span>
+    </a>
+  </div>
+</section>
+
+</main>
+
+<footer class="footer">
+  <div class="band band-meander band-on-night" aria-hidden="true"></div>
+  <div class="wrap footer-grid">
+    <a class="brand-footer" href="#top" aria-label="Сенсорика, творческая мастерская — наверх"><img src="assets/img/logo-sensorika.webp" width="200" height="190" alt="Логотип «Сенсорика»" loading="lazy" decoding="async"></a>
+    <p>Гончарный круг, лепка, гипс, свидания и&nbsp;детские праздники в&nbsp;Чебоксарах.</p>
+    <p class="footer-links"><a href="https://vk.ru/sensorika21" target="_blank" rel="noopener">ВКонтакте</a> · <a href="https://yandex.ru/maps/org/146453008590/" target="_blank" rel="noopener">Яндекс Карты</a></p>
+  </div>
+</footer>
+
+<script src="data/site.js"></script>
+<script src="js/main.js"></script>
+<script>
+  // Three.js (~650 КБ) грузим после картинок первого экрана, чтобы на телефоне арка и текст появились раньше
+  (function () {
+    function load() {
+      ["assets/vendor/three.min.js", "js/game.js"].forEach(function (src) {
+        var s = document.createElement("script");
+        s.src = src; s.async = false;
+        document.body.appendChild(s);
+      });
+    }
+    if (document.readyState === "complete") load();
+    else window.addEventListener("load", load);
+  })();
+</script>
+</body>
+</html>

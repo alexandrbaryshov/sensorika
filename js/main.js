@@ -1,0 +1,187 @@
+/* Сенсорика: наполнение страницы из data/site.js */
+(function () {
+  "use strict";
+  // Единица макета: 1/2752 ширины окна без полосы прокрутки
+  function unit() { document.documentElement.style.setProperty("--u", document.documentElement.clientWidth / 2752 + "px"); }
+  unit();
+
+  // Заголовок дугой, как надпись по плечу сосуда: буквы раскладываются по окружности
+  var arcEl = document.querySelector("[data-arc]");
+  var measureCtx = document.createElement("canvas").getContext("2d");
+  function layoutArc() {
+    if (!arcEl) return;
+    var h1 = arcEl.parentNode;
+    var text = arcEl.getAttribute("data-text") || arcEl.textContent.trim();
+    arcEl.setAttribute("data-text", text);
+    h1.setAttribute("aria-label", text);
+    var cs = getComputedStyle(h1);
+    var fs = parseFloat(cs.fontSize), W = h1.clientWidth;
+    if (!W || !fs) return;
+    var ls = fs * 0.012;
+    measureCtx.font = fs + "px " + cs.fontFamily;
+    var chars = text.toUpperCase().split("");
+    var widths = chars.map(function (c) { return measureCtx.measureText(c).width + ls; });
+    var total = widths.reduce(function (a, b) { return a + b; }, 0);
+    // не влезает в ширину (телефон) — уменьшаем кегль и раскладываем заново
+    if (total > W * 0.94 && !layoutArc.fitting) {
+      layoutArc.fitting = true;
+      h1.style.fontSize = (fs * W * 0.94 / total).toFixed(1) + "px";
+      layoutArc();
+      layoutArc.fitting = false;
+      return;
+    }
+    var sag = W * 0.036, chord = Math.min(W * 0.98, total * 0.97);
+    var R = (chord * chord / 4 + sag * sag) / (2 * sag);
+    var apex = fs * 1.02, cx = W / 2, cy = apex + R;
+    var start = -total / 2, acc = 0, html = "";
+    chars.forEach(function (c, i) {
+      var th = (start + acc + widths[i] / 2) / R;
+      acc += widths[i];
+      var x = cx + R * Math.sin(th), y = cy - R * Math.cos(th);
+      html += '<span class="arc-ch" style="left:' + x.toFixed(1) + "px;top:" + y.toFixed(1) + "px;transform:translate(-50%,-80%) rotate(" + th.toFixed(4) + 'rad)">' + (c === " " ? "&nbsp;" : c) + "</span>";
+    });
+    arcEl.innerHTML = '<span class="visually-hidden">' + text + "</span>" + html.replace(/class="arc-ch"/g, 'class="arc-ch" aria-hidden="true"');
+    var endDrop = R - Math.sqrt(Math.max(0, R * R - (total / 2) * (total / 2)));
+    h1.style.height = (apex + endDrop + fs * 0.25).toFixed(1) + "px";
+  }
+  layoutArc();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(layoutArc);
+  // На телефоне resize летит при каждом показе/скрытии адресной строки во время прокрутки.
+  // Раскладка зависит только от ширины, поэтому пересчитываем её раз в кадр и лишь когда ширина изменилась.
+  var lastW = document.documentElement.clientWidth, resizeRaf = 0;
+  window.addEventListener("resize", function () {
+    if (resizeRaf) return;
+    resizeRaf = requestAnimationFrame(function () {
+      resizeRaf = 0;
+      var w = document.documentElement.clientWidth;
+      if (w === lastW) return;
+      lastW = w;
+      unit();
+      if (arcEl) arcEl.parentNode.style.fontSize = "";
+      layoutArc();
+    });
+  });
+  var S = window.SITE;
+  if (!S) return;
+
+  var TBD = '<span class="tbd" title="Данные появятся позже">уточняется</span>';
+  var ARROW = '<span class="ico ico-arrow" aria-hidden="true"></span>';
+
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+  function rub(n) {
+    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, "\u202F") + "\u00A0₽";
+  }
+  // Цена позиции прайса: «5 000 ₽» или диапазон «1 500–5 000 ₽»
+  function priceOf(it) {
+    if (!it || !it.price) return TBD;
+    return it.priceTo ? rub(it.price).replace(/\s₽$/, "") + "–" + rub(it.priceTo) : rub(it.price);
+  }
+  function val(v) { return v == null || v === "" ? TBD : esc(v); }
+
+  // Ссылка записи: YClients, а пока её нет — ВКонтакте
+  var bookUrl = S.studio.yclients || S.studio.vk;
+  document.querySelectorAll("[data-book]").forEach(function (a) {
+    a.href = bookUrl;
+    a.target = "_blank";
+    a.rel = "noopener";
+  });
+
+  // Направления
+  var dirList = document.getElementById("dirList");
+  if (dirList) {
+    dirList.innerHTML = S.services.map(function (s) {
+      var anchor = s.id === "date" ? "#date" : s.id === "kids" ? "#kids" : bookUrl;
+      var ext = anchor.charAt(0) !== "#";
+      return (
+        '<li class="dir-item" id="dir-' + s.id + '">' +
+          '<img class="dir-tondo" src="assets/illustrations/tondo-' + s.id + '.webp" width="280" height="280" alt="" loading="lazy" decoding="async">' +
+          "<div><h3>" + esc(s.title) + "</h3>" +
+          '<p class="dir-tags">' + s.who.map(function (w) { return "<span>" + esc(w) + "</span>"; }).join("") + "</p></div>" +
+          '<p class="dir-lead">' + esc(s.lead) + (s.duration ? "<br>Длительность: " + esc(s.duration) : "") + "</p>" +
+          '<div class="dir-meta">' +
+            // без цены (price: null) карточка показывает только ссылку
+            (s.price ? '<span class="dir-price">от ' + rub(s.price) + "</span>" +
+              '<span class="dir-unit">' + esc(s.unit) + "</span>" : "") +
+            '<a href="' + anchor + '"' + (ext ? ' target="_blank" rel="noopener"' : "") + ">" +
+              (ext ? "Записаться" : "Подробнее") + ARROW + "</a>" +
+          "</div>" +
+        "</li>"
+      );
+    }).join("");
+  }
+
+  // Пакеты дня рождения
+  var pk = document.getElementById("packages");
+  if (pk && S.birthday) {
+    var P = S.birthday.packages;
+    var rows = [
+      ["animation", "Анимация"],
+      ["extras", "Дополнительно"],
+      ["master", "Мастер-класс"],
+      ["catalog", "Что можно делать"],
+      ["materials", "Материалы"],
+      ["photo", "Фотограф"]
+    ];
+    var html = "<table><thead><tr><th scope=\"col\"><span class=\"visually-hidden\">Пакет</span></th>";
+    P.forEach(function (p) {
+      html += '<th scope="col"><span class="pkg-name">' + esc(p.name) + '</span><span class="pkg-title">«' + esc(p.title) + '»</span><span class="pkg-price">' + rub(p.price) + "</span></th>";
+    });
+    html += "</tr></thead><tbody>";
+    rows.forEach(function (r) {
+      html += '<tr><th scope="row">' + r[1] + "</th>";
+      P.forEach(function (p) {
+        var v = p.rows[r[0]];
+        html += v ? "<td>" + esc(v) + "</td>" : '<td class="is-empty">—</td>';
+      });
+      html += "</tr>";
+    });
+    html += "</tbody></table>";
+    pk.innerHTML = html;
+    var note = document.getElementById("packagesNote");
+    if (note) note.textContent = S.birthday.note;
+  }
+
+  // Прайс
+  var pl = document.getElementById("priceList");
+  if (pl) {
+    pl.innerHTML = S.prices.map(function (g) {
+      return '<div class="price-group"><h3>' + esc(g.group) + "</h3>" +
+        g.items.map(function (it) {
+          return '<div class="price-row"><span class="price-name">' + esc(it.name) +
+            (it.note ? '<span class="price-note">' + esc(it.note) + "</span>" : "") +
+            '</span><span class="price-dots" aria-hidden="true"></span><span class="price-val' + (it.priceTo ? ' is-range' : '') + '">' +
+            priceOf(it) + "</span></div>";
+        }).join("") + "</div>";
+    }).join("");
+  }
+
+  // Точечные поля: data-fill="studio:phone" | "service:date:price" | "price:Группа:индекс"
+  document.querySelectorAll("[data-fill]").forEach(function (el) {
+    var k = el.getAttribute("data-fill").split(":");
+    var out = TBD;
+    if (k[0] === "studio") {
+      var v = S.studio[k[1]];
+      if (k[1] === "phone" && v) out = '<a href="tel:' + esc(v.replace(/[^\d+]/g, "")) + '">' + esc(v) + "</a>";
+      else out = val(v);
+    } else if (k[0] === "service") {
+      var s = S.services.filter(function (x) { return x.id === k[1]; })[0];
+      if (s) {
+        var sv = s[k[2]];
+        out = k[2] === "price" && sv ? rub(sv) + " " + esc(s.unit) : val(sv);
+      }
+    } else if (k[0] === "price") {
+      var g = S.prices.filter(function (x) { return x.group === k[1]; })[0];
+      var it = g && g.items[+k[2]];
+      out = priceOf(it);
+    }
+    el.innerHTML = out;
+  });
+
+  // Мобильное меню закрывается после перехода
+  var mob = document.querySelector(".nav-mobile");
+  if (mob) mob.addEventListener("click", function (e) { if (e.target.closest("a")) mob.open = false; });
+})();
