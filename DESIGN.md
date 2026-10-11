@@ -161,7 +161,7 @@ The palette is a warm-dusk set: aubergine nights, fired-clay peaches and terraco
 - **Deep Glaze** (turq-deep): the start of the press-and-hold progress gradient, plus the caret and accent colour.
 
 ### Secondary
-- **Fired Clay** (clay): a section ground (Kids, Contacts), the meander belt ground, selected chips, the frame around the date photo and the certificate sheet.
+- **Fired Clay** (clay): a section ground (Contacts), the meander belt ground, selected chips, the frame around the date photo and the certificate sheet.
 - **Kiln Peach** (clay-deep): the map frame ring, the scrollbar thumb and the ornament on night belts.
 - **Belt Peach** (ornament-peach): the ground under the painted Chuvash ornament belt. The postcard band uses it too.
 - **Terracotta** (terra): handwritten lines on light grounds, the Prices section ground and the hover underline on direction rows.

@@ -11,9 +11,125 @@
   <link rel="preload" href="assets/fonts/ledger-cyrillic-400.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="assets/fonts/badscript-cyrillic-400.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="assets/fonts/golos-cyrillic-var.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/amatic-cyrillic-700.woff2" as="font" type="font/woff2" crossorigin>
+  <script>
+    // До первой отрисовки: заставка только при самом первом входе; если игра уже начата — шапка игры сразу свёрнута
+    (function () {
+      var d = document.documentElement, seen = false, demo = /[?&]demo=/.test(location.search);
+      try { seen = !!localStorage.getItem("sensorika:splash"); } catch (e) {}
+      if (!seen) seen = /(^|;\s*)sk_splash=1/.test(document.cookie);
+      if (!seen && !demo) {
+        d.classList.add("is-splash");
+        try { localStorage.setItem("sensorika:splash", "1"); } catch (e) {}
+        document.cookie = "sk_splash=1; max-age=31536000; path=/; SameSite=Lax";
+      }
+      if (demo) { d.classList.add("game-on"); return; }
+      try {
+        var g = JSON.parse(localStorage.getItem("sensorika:game") || "null");
+        if (g && g.v === 1 && Date.now() - g.t < 6048e5) d.classList.add("game-on");
+      } catch (e) {}
+    })();
+  </script>
+  <style>
+    /* Заставка первого входа: стили здесь, чтобы не зависеть от порядка загрузки styles.css */
+    .splash { display: none; }
+    .is-splash .splash, .splash.is-out { display: grid; }
+    .is-splash body { overflow: hidden; }
+    .splash {
+      position: fixed; inset: 0; z-index: 200; place-items: center; padding: 24px;
+      background: radial-gradient(56% 42% at 50% 64%, rgb(179 104 74 / .34), rgb(125 62 48 / .1) 60%, transparent 78%), #1f1424;
+      color: #f4e6df; text-align: center;
+      transition: opacity .7s cubic-bezier(.16, 1, .3, 1), visibility 0s linear .7s;
+    }
+    .splash.is-out { opacity: 0; visibility: hidden; pointer-events: none; }
+    .splash-in { display: flex; flex-direction: column; align-items: center; transition: transform .7s cubic-bezier(.16, 1, .3, 1); }
+    .splash.is-out .splash-in { transform: scale(1.04); }
+    .splash-mark { width: 76px; height: 76px; border-radius: 50%; box-shadow: 0 0 0 3px #1f1424, 0 0 0 4.5px rgb(233 178 147 / .45); }
+    .splash-name { margin: 16px 0 0; font: 700 2.9rem/1 "Amatic SC", "Comic Sans MS", cursive; letter-spacing: .06em; text-transform: uppercase; color: #ecc9bd; }
+    .splash-tag { margin: 6px 0 0; font: 400 1.05rem/1.2 "Bad Script", cursive; color: #c9b5c6; }
+    .splash-wheel { display: block; width: min(250px, 66vw); height: auto; margin-top: 18px; overflow: visible; }
+    .splash-bar { display: block; width: 140px; height: 2px; margin-top: 14px; border-radius: 2px; background: rgb(244 230 223 / .14); overflow: hidden; }
+    .splash-bar i { display: block; height: 100%; background: #e9b293; transform-origin: left; animation: sp-bar 4s linear both; }
+    .sp-move { animation: sp-move var(--t) linear infinite; }
+    .sp-streak { animation: sp-streak 3.2s linear infinite; }
+    @keyframes sp-move { from { transform: translateX(calc(var(--d) * -1px)); } to { transform: none; } }
+    @keyframes sp-streak { to { stroke-dashoffset: 100; } }
+    @keyframes sp-bar { from { transform: scaleX(0); } to { transform: none; } }
+    @media (prefers-reduced-motion: reduce) { .splash *, .splash *::before { animation: none !important; } }
+  </style>
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
+
+<!-- Заставка первого входа: гончарный круг с вазой, пока грузятся фото и 3D -->
+<div class="splash" id="splash" aria-hidden="true">
+  <div class="splash-in">
+    <img class="splash-mark" src="assets/img/logo-mark.webp" width="280" height="280" alt="" fetchpriority="high">
+    <p class="splash-name">Сенсорика</p>
+    <p class="splash-tag">творческая мастерская</p>
+    <svg class="splash-wheel" viewBox="0 0 240 200" width="240" height="200" focusable="false">
+      <defs>
+        <radialGradient id="spBat" cx=".42" cy=".38" r=".7"><stop offset="0" stop-color="#4f3a38"/><stop offset="1" stop-color="#30242a"/></radialGradient>
+        <linearGradient id="spShade" x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0" stop-color="#0f0810" stop-opacity=".62"/>
+          <stop offset=".2" stop-color="#0f0810" stop-opacity=".16"/>
+          <stop offset=".37" stop-color="#ffecdc" stop-opacity=".26"/>
+          <stop offset=".52" stop-color="#ffecdc" stop-opacity="0"/>
+          <stop offset=".8" stop-color="#0f0810" stop-opacity=".26"/>
+          <stop offset="1" stop-color="#0f0810" stop-opacity=".66"/>
+        </linearGradient>
+        <clipPath id="spVase"><path d="M105 166H135V160Q135 157 130 157C131 153 132 151 133 149C142 142 156 130 162 112C166 98 160 86 152 80C146 75 136 73 134 70V52C134 49 140 48 140 46V42H100V46C100 48 106 49 106 52V70C104 73 94 75 88 80C80 86 74 98 78 112C84 130 98 142 107 149C108 151 109 153 110 157Q105 157 105 160Z"/></clipPath>
+        <pattern id="spTongue" width="7" height="10" y="74" patternUnits="userSpaceOnUse"><rect x="1" y="-3" width="5" height="13" rx="2.5" fill="#2b1c30"/></pattern>
+        <pattern id="spMeander" width="16" height="12" y="90" patternUnits="userSpaceOnUse" viewBox="0 0 28 28" preserveAspectRatio="none"><path d="M0 25.5H28M21 25.5V5H5v14h10v-8h-5M0 1.5H28" fill="none" stroke="#2b1c30" stroke-width="3" stroke-linecap="square"/></pattern>
+        <pattern id="spWave" width="14" height="18" y="105" patternUnits="userSpaceOnUse" viewBox="0 0 28 28" preserveAspectRatio="none"><rect width="28" height="28" fill="#2b1c30"/><path d="M0 24 0 18C4 8 14 4 20 10 24 14 19 19 16 15 14 12 20 11 21 15 23 20 26 20 28 18V24Z" fill="#d98a62"/></pattern>
+        <pattern id="spRays" width="9" height="18" y="130" patternUnits="userSpaceOnUse"><path d="M0 18 4.5 0 9 18Z" fill="#2b1c30"/></pattern>
+      </defs>
+      <ellipse cx="120" cy="188" rx="80" ry="7" fill="#000" opacity=".35"/>
+      <path d="M24 166v12a96 18 0 0 0 192 0v-12Z" fill="#241920"/>
+      <ellipse cx="120" cy="166" rx="96" ry="18" fill="url(#spBat)"/>
+      <g fill="none" stroke-width="2.2">
+        <ellipse class="sp-streak" cx="120" cy="166" rx="86" ry="16" pathLength="100" stroke="#cf8a68" stroke-opacity=".5" stroke-dasharray="9 7 3 14 6 11"/>
+        <ellipse class="sp-streak" cx="120" cy="166" rx="68" ry="12.7" pathLength="100" stroke="#140c0e" stroke-opacity=".5" stroke-dasharray="6 10 12 8"/>
+        <ellipse class="sp-streak" cx="120" cy="166" rx="48" ry="9" pathLength="100" stroke="#cf8a68" stroke-opacity=".38" stroke-dasharray="14 9 5 12"/>
+      </g>
+      <ellipse cx="120" cy="166" rx="24" ry="4" fill="#000" opacity=".4"/>
+      <g clip-path="url(#spVase)">
+        <rect x="70" y="40" width="100" height="130" fill="#d98a62"/>
+        <rect x="70" y="40" width="100" height="30" fill="#2b1c30"/>
+        <g class="sp-move" style="--d:49;--t:.81s"><rect x="40" y="74" width="200" height="10" fill="url(#spTongue)"/></g>
+        <rect x="70" y="86" width="100" height="2" fill="#2b1c30"/>
+        <g class="sp-move" style="--d:64;--t:.82s"><rect x="40" y="90" width="210" height="12" fill="url(#spMeander)"/></g>
+        <g class="sp-move" style="--d:70;--t:.85s"><rect x="40" y="105" width="210" height="18" fill="url(#spWave)"/></g>
+        <rect x="70" y="104" width="100" height="2" fill="#2b1c30"/>
+        <g class="sp-move" style="--d:45;--t:.85s"><rect x="40" y="130" width="200" height="18" fill="url(#spRays)"/></g>
+        <rect x="70" y="148" width="100" height="22" fill="#2b1c30"/>
+        <rect x="74" y="40" width="92" height="130" fill="url(#spShade)"/>
+      </g>
+    </svg>
+    <span class="splash-bar"><i></i></span>
+  </div>
+</div>
+<script>
+  // Заставка держится 4 секунды и до готовности 3D-игры, но не дольше 9 секунд
+  (function () {
+    var d = document.documentElement;
+    if (!d.classList.contains("is-splash")) return;
+    var t0 = Date.now(), ready = false, gone = false;
+    function check() {
+      var t = Date.now() - t0;
+      if (gone || !(t >= 9000 || (t >= 4000 && ready))) return;
+      gone = true;
+      var s = document.getElementById("splash");
+      s.classList.add("is-out");
+      d.classList.remove("is-splash");
+      window.dispatchEvent(new Event("splashdone"));
+      setTimeout(function () { s.remove(); }, 800);
+    }
+    window.addEventListener("gameready", function () { ready = true; check(); });
+    setTimeout(check, 4000);
+    setTimeout(check, 9000);
+  })();
+</script>
 
 <a class="skip-link" href="#directions">Перейти к содержанию</a>
 
@@ -26,7 +142,7 @@
   <nav class="nav" aria-label="Разделы">
     <a href="#directions">Направления</a>
     <a href="#date">Свидание</a>
-    <a href="#kids">Детям</a>
+    <a href="#gallery">Работы</a>
     <a href="#prices">Цены</a>
     <a href="#contacts">Контакты</a>
   </nav>
@@ -36,8 +152,8 @@
     <nav aria-label="Разделы">
       <a href="#directions">Направления</a>
       <a href="#date">Свидание для двоих</a>
-      <a href="#kids">Детям и дни рождения</a>
       <a href="#process">Как всё устроено</a>
+      <a href="#gallery">Работы гостей</a>
       <a href="#prices">Цены</a>
       <a href="#gift">Сертификаты</a>
       <a href="#contacts">Контакты</a>
@@ -49,8 +165,11 @@
 
 <!-- ============ 1. Игра ============ -->
 <section class="hero" id="hero" aria-labelledby="hero-title">
-  <h1 class="hero-title" id="hero-title"><span class="arc" data-arc>Слепите вазу прямо сейчас</span></h1>
-  <p class="hero-sub">А затем воплотите её в&nbsp;жизнь в&nbsp;нашей мастерской.</p>
+  <!-- Заголовок плавно уходит, как только человек взялся за глину (класс game-on), и больше не возвращается -->
+  <div class="hero-intro"><div class="hero-intro-in">
+    <h1 class="hero-title" id="hero-title"><span class="arc" data-arc>Слепите вазу прямо сейчас</span></h1>
+    <p class="hero-sub">А затем воплотите её в&nbsp;жизнь в&nbsp;нашей мастерской.</p>
+  </div></div>
 
   <ol class="steps-rail" id="stepsRail" aria-label="Этапы игры">
     <li data-step="lump" class="is-active"><span class="medal" aria-hidden="true"><img src="assets/plates/medal-lump.webp" width="200" height="200" alt=""></span><span class="step-name">Ком</span></li>
@@ -79,6 +198,7 @@
   <!-- док: на десктопе даёт панели подрасти вверх, когда этап длинный (роспись), вместо прокрутки внутри -->
   <div class="game-dock">
     <div class="game-panel" id="gamePanel">
+      <button class="game-restart" type="button" id="gameRestart" title="Начать сначала"><span class="ico ico-restart" aria-hidden="true"></span><span class="game-restart-label">Заново</span></button>
       <div class="game-text" aria-live="polite">
         <p class="game-step" id="gameStep">Этап 1 из 5</p>
         <h2 class="game-title" id="gameTitle">Ком глины</h2>
@@ -130,27 +250,7 @@
 
 <div class="band-ornament band-ornament-sm" aria-hidden="true"></div>
 
-<!-- ============ 4. Детям ============ -->
-<section class="kids" id="kids" aria-labelledby="kids-title">
-  <div class="wrap">
-    <div class="section-head">
-      <h2 id="kids-title">Творческий день рождения</h2>
-      <p class="hand">мы всё продумали за&nbsp;вас</p>
-    </div>
-    <p class="kids-lead">Праздник «под ключ»: аниматор, мастер-класс с&nbsp;настоящим художником или мастером, фотограф и&nbsp;студия на&nbsp;три часа. Ребята уносят домой то, что сделали сами.</p>
-
-    <div class="packages" id="packages" role="region" aria-label="Сравнение пакетов" tabindex="0"><!-- таблица из data/site.js --></div>
-    <p class="packages-note" id="packagesNote"></p>
-
-    <div class="kids-classes">
-      <h3>Мастер-классы для школьников</h3>
-      <p>Ручная лепка, рисование картин, роспись футболок и&nbsp;шоперов, свечи и&nbsp;гипсовые сувениры. Можно прийти классом или группой.</p>
-      <a class="btn btn-ink" data-book href="#contacts">Узнать расписание</a>
-    </div>
-  </div>
-</section>
-
-<!-- ============ 5. Как устроено ============ -->
+<!-- ============ 4. Как устроено ============ -->
 <section class="process" id="process" aria-labelledby="process-title">
   <div class="wrap">
     <div class="section-head">
@@ -168,7 +268,7 @@
 
 <div class="band band-meander band-on-lav" aria-hidden="true"></div>
 
-<!-- ============ 6. Галерея ============ -->
+<!-- ============ 5. Галерея ============ -->
 <section class="gallery" id="gallery" aria-labelledby="gallery-title">
   <div class="wrap">
     <div class="section-head">
@@ -189,7 +289,7 @@
   </div>
 </section>
 
-<!-- ============ 7. Цены ============ -->
+<!-- ============ 6. Цены ============ -->
 <section class="prices" id="prices" aria-labelledby="prices-title">
   <div class="wrap prices-grid">
     <div class="section-head">
@@ -201,7 +301,7 @@
   </div>
 </section>
 
-<!-- ============ 8. Сертификат ============ -->
+<!-- ============ 7. Сертификат ============ -->
 <section class="gift" id="gift" aria-labelledby="gift-title">
   <div class="wrap gift-grid">
     <div class="certificate" aria-hidden="true">
@@ -222,7 +322,7 @@
 
 <div class="band-ornament band-ornament-sm" aria-hidden="true"></div>
 
-<!-- ============ 9. Отзывы ============ -->
+<!-- ============ 8. Отзывы ============ -->
 <section class="reviews" id="reviews" aria-labelledby="reviews-title">
   <div class="wrap reviews-grid">
     <div class="section-head">
@@ -236,7 +336,7 @@
   </div>
 </section>
 
-<!-- ============ 10. FAQ ============ -->
+<!-- ============ 9. FAQ ============ -->
 <section class="faq" id="faq" aria-labelledby="faq-title">
   <div class="wrap faq-grid">
     <h2 id="faq-title">Частые вопросы</h2>
@@ -265,7 +365,7 @@
   </div>
 </section>
 
-<!-- ============ 11. Контакты ============ -->
+<!-- ============ 10. Контакты ============ -->
 <section class="contacts" id="contacts" aria-labelledby="contacts-title">
   <div class="wrap contacts-grid">
     <div class="contacts-copy">
@@ -303,12 +403,24 @@
 <script>
   // Three.js (~650 КБ) грузим после картинок первого экрана, чтобы на телефоне арка и текст появились раньше
   (function () {
+    var done = false;
+    // игра готова (или не загрузилась) — заставка может уходить, а фото ниже по странице докачиваются заранее
+    function ready() {
+      if (done) return;
+      done = true;
+      window.dispatchEvent(new Event("gameready"));
+      var idle = window.requestIdleCallback || function (f) { setTimeout(f, 1200); };
+      idle(function () {
+        document.querySelectorAll('img[loading="lazy"][src^="assets/"]').forEach(function (img) { img.loading = "eager"; });
+      });
+    }
     function load() {
-      ["assets/vendor/three.min.js", "js/game.js"].forEach(function (src) {
+      ["assets/vendor/three.min.js", "js/game.js"].forEach(function (src, i) {
         var s = document.createElement("script");
         s.src = src; s.async = false;
+        if (i === 1) s.onload = ready;
         // игра не загрузилась — кнопка записи нужна сразу
-        s.onerror = function () { document.getElementById("hero").classList.add("cta-on"); };
+        s.onerror = function () { document.getElementById("hero").classList.add("cta-on"); ready(); };
         document.body.appendChild(s);
       });
     }

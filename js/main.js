@@ -61,15 +61,11 @@
       layoutArc();
     });
   });
-  // Телефон: ниша с кругом берёт высоту, оставшуюся от рельса этапов и панели, — всё видно без прокрутки (см. .niche в CSS)
-  var hero = document.getElementById("hero"), rail = document.getElementById("stepsRail"), gamePanel = document.getElementById("gamePanel");
-  if (hero && rail && gamePanel && "ResizeObserver" in window) {
-    var fit = new ResizeObserver(function () {
-      hero.style.setProperty("--rail-h", rail.offsetHeight + "px");
-      hero.style.setProperty("--panel-h", gamePanel.offsetHeight + "px");
-    });
-    fit.observe(rail);
-    fit.observe(gamePanel);
+  // Телефон: ниша с кругом берёт высоту, оставшуюся от рельса этапов и места под панель, — всё видно без прокрутки.
+  // Место под панель постоянное (--panel-res в CSS), поэтому арка не меняет размер от этапа к этапу.
+  var hero = document.getElementById("hero"), rail = document.getElementById("stepsRail");
+  if (hero && rail && "ResizeObserver" in window) {
+    new ResizeObserver(function () { hero.style.setProperty("--rail-h", rail.offsetHeight + "px"); }).observe(rail);
   }
 
   var S = window.SITE;
@@ -105,7 +101,7 @@
   var dirList = document.getElementById("dirList");
   if (dirList) {
     dirList.innerHTML = S.services.map(function (s) {
-      var anchor = s.id === "date" ? "#date" : s.id === "kids" ? "#kids" : bookUrl;
+      var anchor = s.id === "date" ? "#date" : bookUrl;
       var ext = anchor.charAt(0) !== "#";
       return (
         '<li class="dir-item" id="dir-' + s.id + '">' +
@@ -123,37 +119,6 @@
         "</li>"
       );
     }).join("");
-  }
-
-  // Пакеты дня рождения
-  var pk = document.getElementById("packages");
-  if (pk && S.birthday) {
-    var P = S.birthday.packages;
-    var rows = [
-      ["animation", "Анимация"],
-      ["extras", "Дополнительно"],
-      ["master", "Мастер-класс"],
-      ["catalog", "Что можно делать"],
-      ["materials", "Материалы"],
-      ["photo", "Фотограф"]
-    ];
-    var html = "<table><thead><tr><th scope=\"col\"><span class=\"visually-hidden\">Пакет</span></th>";
-    P.forEach(function (p) {
-      html += '<th scope="col"><span class="pkg-name">' + esc(p.name) + '</span><span class="pkg-title">«' + esc(p.title) + '»</span><span class="pkg-price">' + rub(p.price) + "</span></th>";
-    });
-    html += "</tr></thead><tbody>";
-    rows.forEach(function (r) {
-      html += '<tr><th scope="row">' + r[1] + "</th>";
-      P.forEach(function (p) {
-        var v = p.rows[r[0]];
-        html += v ? "<td>" + esc(v) + "</td>" : '<td class="is-empty">—</td>';
-      });
-      html += "</tr>";
-    });
-    html += "</tbody></table>";
-    pk.innerHTML = html;
-    var note = document.getElementById("packagesNote");
-    if (note) note.textContent = S.birthday.note;
   }
 
   // Прайс

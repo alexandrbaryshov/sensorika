@@ -16,8 +16,10 @@
     controls: document.getElementById("gameControls"),
     frieze: document.getElementById("stepsRail"),
     ring: document.getElementById("cursorRing"),
-    tip: document.getElementById("stageTip")
+    tip: document.getElementById("stageTip"),
+    restart: document.getElementById("gameRestart")
   };
+  var DEMO = /[?&]demo=/.test(location.search);
   var REDUCED = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
   // Телефоны и планшеты: меньше пикселей и легче тени, чтобы сцена не грела аппарат и не съедала батарею
   var LITE = window.matchMedia && matchMedia("(pointer: coarse), (max-width: 1099.98px)").matches;
@@ -28,6 +30,7 @@
     var panel = document.getElementById("gamePanel");
     if (panel) panel.hidden = true;
     if (heroEl) heroEl.classList.add("cta-on");
+    document.documentElement.classList.remove("game-on");
   }
   if (!window.THREE || !canvas) { fallback(); return; }
 
@@ -246,6 +249,8 @@
   // На телефоне форма пересобирается каждый кадр, пока держат палец: меньше сегментов — ровнее кадры
   var N = 44, LIP = 6, SEG = LITE ? 72 : 120;
   var WALL = 0.13, FLOOR = 0.17, BASE = 0.04;
+  // Предел формы: под него рассчитан постоянный кадр камеры (см. framing)
+  var RMAX = 1.2, HMAX = 2.3;
   var P = 2 + N + LIP + N + 1;
   var R = new Float32Array(N), Rgoal = new Float32Array(N);
   var H = 1.15, Hgoal = 1.15, V0 = 1;
@@ -317,34 +322,29 @@
     for (var i = 0; i < N; i++) {
       var t = i / (N - 1), r;
       if (name === "cylinder") r = 0.93 - 0.06 * t;
-      else if (name === "bowl") r = 0.62 + 1.08 * Math.pow(Math.sin(t * Math.PI / 2), 0.75);
+      else if (name === "bowl") r = 0.56 + 0.64 * Math.pow(Math.sin(t * Math.PI / 2), 0.75);
       else if (name === "jar") r = 0.6 + 0.3 * Math.exp(-Math.pow((t - .42) / .3, 2)) - 0.1 * smooth(t, .6, .86) + 0.14 * smooth(t, .86, 1);
       else if (name === "mug") r = 0.86 - 0.04 * t + 0.03 * Math.exp(-Math.pow((t - .12) / .1, 2));
-      else if (name === "vase") r = 0.5 + 0.6 * Math.exp(-Math.pow((t - .34) / .24, 2)) - 0.12 * smooth(t, .55, .82) + 0.3 * smooth(t, .8, 1);
-      else r = 0.42 + 0.66 * Math.exp(-Math.pow((t - .42) / .22, 2)) - 0.02 * t + 0.16 * smooth(t, .88, 1); // amphora
+      else if (name === "vase") r = 0.48 + 0.58 * Math.exp(-Math.pow((t - .34) / .24, 2)) - 0.12 * smooth(t, .55, .82) + 0.28 * smooth(t, .8, 1);
+      else r = 0.38 + 0.6 * Math.exp(-Math.pow((t - .42) / .22, 2)) - 0.02 * t + 0.15 * smooth(t, .88, 1); // amphora
       out[i] = r;
     }
-    return { jar: 1.75, cylinder: 1.3, bowl: 1.0, mug: 1.55, vase: 2.25, amphora: 2.7 }[name];
+    return { jar: 1.75, cylinder: 1.3, bowl: 1.0, mug: 1.55, vase: 2.1, amphora: 2.3 }[name];
   }
 
   /* ---------------------------------------------------------------- камера и кадр */
   var view = { pos: new V3(), target: new V3(), goalPos: new V3(), goalTarget: new V3() };
   var focus = "wheel";
-  // Камера вписывает круг и изделие в проём арки: высокую вазу показывает целиком
+  // Один близкий ракурс на всех этапах — у круга, в печи и на росписи: ваза не меняет размер, мелкие детали удобно вести пальцем.
+  // Кадр подобран под самую большую форму (RMAX × HMAX) при соотношении сторон проёма арки ≈ 0,92.
+  var FRAME = { y: 1.08, half: 1.53, elev: 0.18 };
   function framing(where) {
-    var aspect = camera.aspect || 0.92;
-    var tan = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-    var cx = 0, ty, halfW, elev = 0.33;
-    if (where === "kiln") { cx = KX; ty = 1.85; halfW = 2.6; elev = 0.1; }
-    else {
-      var hhReq = (H + 1.15) / 2;
-      ty = Math.max(0.72, H / 2 - 0.05);
-      halfW = Math.max(where === "done" ? 1.5 : 1.6, hhReq * aspect);
-    }
-    var dist = Math.max(halfW / (tan * aspect), 2.0 / tan);
-    view.goalTarget.set(cx, ty, 0);
-    view.goalPos.set(cx, ty + dist * Math.sin(elev), dist * Math.cos(elev));
-  }  function snapCamera() { view.pos.copy(view.goalPos); view.target.copy(view.goalTarget); }
+    var cx = where === "kiln" ? KX : 0;
+    var dist = FRAME.half / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    view.goalTarget.set(cx, FRAME.y, 0);
+    view.goalPos.set(cx, FRAME.y + dist * Math.sin(FRAME.elev), dist * Math.cos(FRAME.elev));
+  }
+  function snapCamera() { view.pos.copy(view.goalPos); view.target.copy(view.goalTarget); }
 
   function resize() {
     var w = stageEl.clientWidth, h = stageEl.clientHeight;
@@ -372,13 +372,142 @@
       li.classList.toggle("is-done", i < idx);
     });
     ui.step.textContent = "Этап " + (idx + 1) + " из 5";
+    // на последнем этапе есть своя кнопка «Слепить ещё»
+    if (ui.restart) ui.restart.hidden = name === "done";
+    heroEl.classList.toggle("is-done", name === "done");
   }
-  function panel(title, hint, html) {
+  function panel(title, hint, html, kind) {
     ui.title.textContent = title;
     ui.hint.innerHTML = hint;
-    ui.controls.className = "game-controls";
+    ui.controls.className = "game-controls" + (kind ? " is-" + kind : "");
     ui.controls.innerHTML = html || "";
   }
+
+  /* ---------------------------------------------------------------- сохранение */
+  // Прогресс лежит в localStorage: страница перезагрузилась (слабый интернет, телефон выгрузил вкладку) — ваза на месте.
+  var SAVE_KEY = "sensorika:game", SAVE_TTL = 7 * 864e5;
+  // этап для сохранения: промежуточные анимации относим к этапу, который начнётся после перезагрузки
+  var SAVE_STEP = { intro: "lump", drop: "lump", lump: "lump", opening: "lump", shape: "shape", transfer: "fire", fire: "fire", cracked: "fire", cooling: "paint", paint: "paint", glazing: "done", done: "done" };
+  var saveTimer = 0;
+  function loadSave() {
+    if (DEMO) return null;
+    try {
+      var s = JSON.parse(localStorage.getItem(SAVE_KEY) || "null");
+      if (!s || s.v !== 1 || Date.now() - s.t > SAVE_TTL) return null;
+      if (s.step !== "lump" && !(s.R && s.R.length === N)) return null;
+      return s;
+    } catch (e) { return null; }
+  }
+  function save() {
+    clearTimeout(saveTimer); saveTimer = 0;
+    if (DEMO) return;
+    var step = SAVE_STEP[state] || "lump";
+    var s = { v: 1, t: Date.now(), step: step };
+    if (step !== "lump") {
+      s.H = +H.toFixed(4);
+      s.R = Array.prototype.map.call(R, function (r) { return +r.toFixed(4); });
+    }
+    // роспись — картинкой: пока печь остывает, на изделии ещё нет росписи, сохраняем чистый черепок
+    if ((step === "paint" && state !== "cooling") || step === "done") {
+      try { s.skin = skinCv.toDataURL("image/jpeg", 0.86); } catch (e) {}
+    }
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); }
+    catch (e) {
+      // не хватило места — сохраняем хотя бы форму
+      try { delete s.skin; localStorage.setItem(SAVE_KEY, JSON.stringify(s)); } catch (e2) {}
+    }
+  }
+  function saveSoon() { if (!saveTimer) saveTimer = setTimeout(save, 500); }
+  function flushSave() { if (saveTimer) save(); }
+  window.addEventListener("pagehide", flushSave);
+  document.addEventListener("visibilitychange", function () { if (document.hidden) flushSave(); });
+
+  // Человек взялся за глину: заголовок над игрой уходит и больше не появляется (класс читает и <head> при следующей загрузке)
+  function markPlaying() {
+    var d = document.documentElement;
+    if (d.classList.contains("game-on")) return;
+    d.classList.add("game-on");
+    save();
+  }
+
+  /* ---------------------------------------------------------------- материал изделия */
+  function matWet() {
+    clayMat.color.copy(COLORS.wet); clayMat.roughness = .6; clayMat.clearcoat = .1; clayMat.clearcoatRoughness = .6;
+    clayMat.emissiveIntensity = 0; clayMat.bumpScale = 2.3; clayMat.map = skinTex; clayMat.needsUpdate = true;
+  }
+  function matBisque() {
+    clayMat.color.set(0xffffff); clayMat.roughness = .86; clayMat.clearcoat = 0;
+    clayMat.emissiveIntensity = 0; clayMat.bumpScale = .5; clayMat.map = skinTex; clayMat.needsUpdate = true;
+  }
+  function matGlazed() {
+    matBisque();
+    clayMat.roughness = .3; clayMat.clearcoat = 1; clayMat.clearcoatRoughness = .08; clayMat.bumpScale = .15;
+  }
+
+  // Готовая форма без анимации падения кома: для восстановления и демо-режимов
+  function placeShape(rs, h) {
+    tweens.length = 0;
+    clay.position.y = 0; clay.scale.set(1, 1, 1);
+    for (var i = 0; i < N; i++) R[i] = clamp(+rs[i] || 0.6, 0.3, RMAX);
+    H = clamp(+h || 1.3, 0.75, HMAX);
+    openK = 1; wobbleK = 0; dirty = true;
+  }
+  function drawSkin(url) {
+    var img = new Image();
+    img.onload = function () { skin.globalAlpha = 1; skin.drawImage(img, 0, 0, SKIN, SKIN); skinTex.needsUpdate = true; };
+    img.src = url;
+  }
+  function restore(s) {
+    placeShape(s.R, s.H);
+    if (s.step === "shape") { matWet(); skinNeutral(); startShape(); }
+    else if (s.step === "fire") {
+      matWet(); skinNeutral();
+      setStep("fire"); spinGoal = 0; grab(false); tip("");
+      focus = "kiln"; framing("kiln"); snapCamera();
+      piece.position.set(KX, 0, 0);
+      beginFiring();
+    } else {
+      skinBisque();
+      if (s.skin) drawSkin(s.skin);
+      if (s.step === "done") { matGlazed(); startDone(); }
+      else { matBisque(); startPaint(); }
+    }
+  }
+
+  // «Заново» на любом этапе. Если работа уже есть, кнопка просит подтвердить вторым нажатием.
+  function restart() {
+    tweens.length = 0; morph = null; fire = null;
+    holding = false; holdBtn = null; pointer.down = false; paint.last = null;
+    finger.visible = false; finishFiring.swapped = false;
+    coilMat.emissiveIntensity = 0; kilnLight.intensity = 0;
+    var fromKiln = focus === "kiln";
+    startLump();
+    if (fromKiln) snapCamera();
+    save();
+  }
+  var confirmTimer = 0;
+  function resetRestartBtn() {
+    clearTimeout(confirmTimer);
+    if (!ui.restart) return;
+    ui.restart.classList.remove("is-confirm");
+    ui.restart.querySelector(".game-restart-label").textContent = "Заново";
+  }
+  if (ui.restart) ui.restart.addEventListener("click", function () {
+    markPlaying();
+    var risky = state !== "drop" && state !== "lump" && state !== "intro";
+    if (risky && !ui.restart.classList.contains("is-confirm")) {
+      ui.restart.classList.add("is-confirm");
+      ui.restart.querySelector(".game-restart-label").textContent = "Начать заново?";
+      clearTimeout(confirmTimer);
+      confirmTimer = setTimeout(resetRestartBtn, 3500);
+      return;
+    }
+    resetRestartBtn();
+    restart();
+  });
+  // любое касание панели игры — тоже начало работы с глиной (click — для клавиатуры)
+  ui.controls.addEventListener("pointerdown", markPlaying);
+  ui.controls.addEventListener("click", markPlaying);
   // Подсказка прямо над глиной; прячется, как только человек начал действовать
   function tip(text) { if (!ui.tip) return; if (text) ui.tip.textContent = text; ui.tip.classList.toggle("is-hidden", !text); }
   function grab(on) { stageEl.classList.toggle("is-grab", !!on); }
@@ -406,13 +535,11 @@
     heroEl.classList.remove("cta-on");
     openK = 0; wobbleK = 1; center = 0;
     shapeLump(); dirty = true;
-    clayMat.color.copy(COLORS.wet); clayMat.roughness = .6; clayMat.clearcoat = .1; clayMat.clearcoatRoughness = .6;
-    clayMat.emissiveIntensity = 0; clayMat.bumpScale = 2.3;
-    skinNeutral(); clayMat.map = skinTex; clayMat.needsUpdate = true;
+    matWet(); skinNeutral();
     piece.position.set(0, 0, 0);
     spinGoal = 2.2;
     panel("Ком глины", "Глина легла на круг неровно, и её бьёт из стороны в сторону. <strong>Зажмите кнопку или саму глину</strong>, чтобы отцентровать ком.",
-      '<button class="hold" type="button" id="holdCenter"><span>Центровать</span></button>');
+      '<button class="hold" type="button" id="holdCenter"><span>Центровать</span></button>', "lump");
     var b = document.getElementById("holdCenter");
     bindHold(b);
     clay.position.y = 4;
@@ -441,7 +568,7 @@
     dirty = true;
     if (center >= 1) {
       state = "opening"; holding = false;
-      panel("Ком глины", "Ком ровный. Теперь большие пальцы уходят в центр, и <strong>ком раскрывается</strong>.", "");
+      panel("Ком глины", "Ком ровный. Большие пальцы уходят в центр, и <strong>ком раскрывается</strong>.", "");
       var from = Float32Array.from(R), to = new Float32Array(N), h0 = H, h1 = presetProfile("cylinder", to);
       tween(1.5, function (k) {
         var e = easeInOut(k);
@@ -460,13 +587,13 @@
     V0 = H * meanR();
     tip("Ведите пальцем по стенке вазы");
     panel("Гончарный круг",
-      "Ведите по стенке: к центру — сужаете, наружу — расширяете",
+      'Ведите пальцем по стенке: к центру — сужаете, наружу — расширяете.<span class="hint-more"> Или возьмите готовую форму:</span>',
       '<div class="row">' +
       '<button class="chip" type="button" data-preset="bowl">Чаша</button>' +
       '<button class="chip" type="button" data-preset="mug">Кружка</button>' +
       '<button class="chip" type="button" data-preset="vase">Ваза</button>' +
       '<button class="chip" type="button" data-preset="amphora">Амфора</button></div>' +
-      '<button class="btn btn-glaze" type="button" id="toKiln">Снять с круга и в печь <span class="ico ico-arrow" aria-hidden="true"></span></button>');
+      '<button class="btn btn-glaze" type="button" id="toKiln">Снять с круга и в печь <span class="ico ico-arrow" aria-hidden="true"></span></button>', "shape");
     ui.controls.querySelectorAll("[data-preset]").forEach(function (c) {
       c.addEventListener("click", function () {
         ui.controls.querySelectorAll("[data-preset]").forEach(function (x) { x.setAttribute("aria-pressed", x === c ? "true" : "false"); });
@@ -476,10 +603,11 @@
           var e = easeInOut(k);
           for (var i = 0; i < N; i++) R[i] = lerp(from[i], to[i], e);
           H = lerp(h0, h1, e); dirty = true;
-        }, function () { morph = null; V0 = H * meanR(); });
+        }, function () { morph = null; V0 = H * meanR(); saveSoon(); });
       });
     });
     document.getElementById("toKiln").addEventListener("click", startFire);
+    save();
   }
 
   var raycaster = new THREE.Raycaster();
@@ -506,7 +634,7 @@
     if (!pointer.down) return;
     tip("");
 
-    var target = clamp(d, 0.3, 2.0);
+    var target = clamp(d, 0.3, RMAX);
     var sigma = 0.14 + 0.05 * H;
     var k = Math.min(1, dt * 7);
     for (var i = 0; i < N; i++) {
@@ -516,10 +644,10 @@
     }
     // сглаживание и минимальная толщина
     for (var p = 0; p < 2; p++) for (var j = 1; j < N - 1; j++) R[j] = R[j] * .8 + (R[j - 1] + R[j + 1]) * .1;
-    for (var q = 0; q < N; q++) R[q] = clamp(R[q], 0.3, 2.0);
+    for (var q = 0; q < N; q++) R[q] = clamp(R[q], 0.3, RMAX);
     R[0] = Math.max(R[0], 0.42);
     // объём глины сохраняется: сузили — вытянулась вверх
-    var goalH = clamp(V0 / meanR(), 0.75, 3.1);
+    var goalH = clamp(V0 / meanR(), 0.75, HMAX);
     H += (goalH - H) * Math.min(1, dt * 5);
     dirty = true;
   }
@@ -537,7 +665,7 @@
     setStep("fire");
     panel("Печь", "Переносим изделие в печь…", "");
     spinGoal = 0;
-    var x0 = piece.position.x;
+    save();
     tween(0.6, function (k) { piece.position.y = easeInOut(k) * 5.5; }, function () {
       focus = "kiln"; framing("kiln");
       piece.position.set(KX, 5.5, 0);
@@ -546,7 +674,6 @@
         tween(0.8, function (k) { piece.position.y = 5.5 * (1 - easeOut(k)); }, beginFiring);
       });
     });
-    void x0;
   }
   function beginFiring() {
     state = "fire"; hold(true);
@@ -554,10 +681,10 @@
     gaugeCache = {};
     clayMat.color.copy(COLORS.wet);
     panel("Печь",
-      "Держите <strong>«Жар»</strong>, чтобы поднять температуру, и держите стрелку в светлой зоне, пока не закончится этап. Резкий скачок — и глина треснет.",
+      "Держите <strong>«Жар»</strong> и не выпускайте стрелку из светлой зоны, пока этап не закончится. Перегреете — глина треснет.",
       '<div class="gauge"><div class="gauge-track"><div class="gauge-band" id="gBand"></div><div class="gauge-needle" id="gNeedle"></div></div>' +
       '<div class="gauge-meta"><span id="gPhase"></span><b id="gTemp">20 °C</b></div><div class="stress" title="Напряжение в глине"><i id="gStress"></i></div></div>' +
-      '<button class="hold is-heat" type="button" id="holdHeat"><span>Жар</span></button>');
+      '<button class="hold is-heat" type="button" id="holdHeat"><span>Жар</span></button>', "fire");
     bindHold(document.getElementById("holdHeat"));
     updateGauge();
   }
@@ -619,12 +746,13 @@
     }
     skin.restore(); skinTex.needsUpdate = true;
     panel("Печь",
-      "<strong>Трещина.</strong> Жар поднялся слишком резко, и глина не выдержала. В настоящей печи за обжигом следит мастер, а здесь можно попробовать ещё раз.",
+      "<strong>Трещина.</strong> Жар поднялся слишком резко. В настоящей печи за обжигом следит мастер, а здесь можно попробовать ещё раз.",
       '<button class="btn btn-glaze" type="button" id="retryFire">Попробовать снова</button>');
     document.getElementById("retryFire").addEventListener("click", function () { skinNeutral(); beginFiring(); });
   }
   function finishFiring() {
     state = "cooling"; holding = false; hold(false);
+    save();
     panel("Печь", "Обжиг удался. Печь остывает, глина стала <strong>черепком</strong>: твёрдым, звонким, тёплого персикового цвета.", "");
     var T0 = fire.T, c0 = clayMat.color.clone();
     tween(1.8, function (k) {
@@ -636,7 +764,7 @@
       if (k > .35 && clayMat.map === skinTex && !finishFiring.swapped) { finishFiring.swapped = true; skinBisque(); }
     }, function () {
       finishFiring.swapped = false;
-      clayMat.roughness = .86; clayMat.clearcoat = 0; clayMat.bumpScale = .5;
+      matBisque();
       // обратно на круг — расписывать
       tween(0.7, function (k) { piece.position.y = easeInOut(k) * 5.5; }, function () {
         focus = "wheel"; framing("wheel");
@@ -651,32 +779,33 @@
   /* ---------- 4. роспись */
   var paint = { color: "#2b1c30", size: 0.05, tool: "brush", last: null };
   var PALETTE = [
-    ["#2b1c30", "Аубергин (чёрный ангоб)"], ["#9e4b35", "Терракота"], ["#3fc1c9", "Бирюза"],
-    ["#8f7fd0", "Лаванда"], ["#f6efe7", "Белый ангоб"], ["#d6a23e", "Охра"]
+    ["#2b1c30", "Аубергин (чёрный ангоб)"], ["#9e4b35", "Терракота"], ["#c8352b", "Красный"], ["#d6a23e", "Охра"],
+    ["#3d8c4f", "Зелёный"], ["#3fc1c9", "Бирюза"], ["#8f7fd0", "Лаванда"], ["#f6efe7", "Белый ангоб"]
   ];
   function startPaint() {
     state = "paint"; grab(true);
     tip("Коснитесь вазы кистью");
     setStep("paint");
     spinGoal = 1.0;
+    paint.color = PALETTE[0][0]; paint.size = 0.05; paint.tool = "brush"; paint.last = null;
     var sw = PALETTE.map(function (p, i) {
-      return '<button class="swatch" type="button" style="--c:' + p[0] + '" data-color="' + p[0] + '" aria-label="' + p[1] + '" aria-pressed="' + (i === 0) + '"></button>';
+      return '<button class="swatch" type="button" style="--c:' + p[0] + '" data-color="' + p[0] + '" aria-label="' + p[1] + '" title="' + p[1] + '" aria-pressed="' + (i === 0) + '"></button>';
     }).join("");
+    // На телефоне инструменты — одна строка с прокруткой вбок (.tools), чтобы панель не съедала место у вазы
     panel("Роспись",
-      "Коснитесь вазы кистью: круг крутится, и получается ровный поясок. Орнамент ляжет туда, куда вы нажмёте.",
-      '<p class="label">Цвет</p><div class="row">' + sw + "</div>" +
-      '<p class="label">Кисть и орнамент</p><div class="row">' +
-      '<button class="chip" type="button" data-size="0.05" aria-pressed="true">Тонкая</button>' +
-      '<button class="chip" type="button" data-size="0.12" aria-pressed="false">Широкая</button>' +
+      'Коснитесь вазы — круг проведёт поясок.<span class="hint-more"> Орнамент ляжет туда, куда вы нажмёте.</span>',
+      '<p class="label">Цвет</p><div class="row row-swatches">' + sw + "</div>" +
+      '<div class="tools"><p class="label">Кисть и орнамент</p><div class="row">' +
+      '<button class="chip" type="button" data-size="0.05" aria-pressed="true">Тонкая кисть</button>' +
+      '<button class="chip" type="button" data-size="0.12" aria-pressed="false">Широкая кисть</button>' +
       '<button class="chip" type="button" data-orn="meander" aria-pressed="false">Меандр</button>' +
       '<button class="chip" type="button" data-orn="chuvash" aria-pressed="false">Чувашский</button>' +
       '<button class="chip" type="button" data-orn="wave" aria-pressed="false">Волна</button>' +
       '<button class="chip" type="button" data-orn="dots" aria-pressed="false">Точки</button></div>' +
       '<div class="row"><button class="chip" type="button" id="spinToggle" aria-pressed="true">Круг крутится</button>' +
-      '<button class="chip" type="button" id="wipe">Смыть роспись</button></div>' +
-      '<button class="btn btn-glaze" type="button" id="toGlaze">Глазуровать и обжечь <span class="ico ico-arrow" aria-hidden="true"></span></button>');
+      '<button class="chip" type="button" id="wipe">Смыть роспись</button></div></div>' +
+      '<button class="btn btn-glaze" type="button" id="toGlaze">Глазуровать и обжечь <span class="ico ico-arrow" aria-hidden="true"></span></button>', "paint");
     var C = ui.controls;
-    C.classList.add("is-paint");
     C.querySelectorAll("[data-color]").forEach(function (b) {
       b.addEventListener("click", function () {
         paint.color = b.dataset.color;
@@ -695,6 +824,7 @@
         if (e.detail === 0) { // с клавиатуры: кладём пояс на случайную высоту
           var v = outerV(Math.floor(rand(.25, .85) * (N - 1)));
           drawBand(paint.tool, v, paint.color);
+          saveSoon();
         }
       });
     });
@@ -704,7 +834,7 @@
       this.textContent = on ? "Круг крутится" : "Круг стоит";
       spinGoal = on ? 1.0 : 0;
     });
-    document.getElementById("wipe").addEventListener("click", function () { skinBisque(); });
+    document.getElementById("wipe").addEventListener("click", function () { skinBisque(); saveSoon(); });
     document.getElementById("toGlaze").addEventListener("click", startGlaze);
   }
 
@@ -798,6 +928,7 @@
       if (pointer.fresh) {
         var v = clamp(uv.y, outerV(2), outerV(N - 3));
         drawBand(paint.tool, v, paint.color);
+        paint.changed = true;
       }
       pointer.fresh = false;
       return;
@@ -805,11 +936,13 @@
     pointer.fresh = false;
     strokeUV(paint.last || uv, uv);
     paint.last = uv;
+    paint.changed = true;
   }
 
   /* ---------- 5. глазурь и готово */
   function startGlaze() {
     state = "glazing"; grab(false); spinGoal = 0.6; tip("");
+    save();
     panel("Роспись", "Покрываем прозрачной глазурью и обжигаем второй раз. В печи <strong>глазурь плавится и становится стеклом</strong>.", "");
     var r0 = clayMat.roughness;
     tween(2.2, function (k) {
@@ -825,14 +958,16 @@
     state = "done"; clayMat.emissiveIntensity = 0;
     focus = "done"; framing("done");
     setStep("done"); spinGoal = 0.35;
-    // кнопка записи под аркой появляется только сейчас, поэтому в панели её не дублируем
+    // кнопка записи появляется только сейчас: на ПК — под аркой, на телефоне — в панели (.game-cta), чтобы не уходить за край экрана
     heroEl.classList.add("cta-on");
+    var cta = heroEl.querySelector(".hero-cta");
     panel("Готово!",
-      "Ваза обожжена и сияет глазурью. Настоящую вы сделаете своими руками в «Сенсорике», и она будет тяжёлой, тёплой и только вашей.",
-      '<div class="row"><button class="chip" type="button" id="savePic">' + (TOUCH ? "Сохранить в галерею" : "Скачать фото") + '</button>' +
-      '<button class="chip" type="button" id="again">Слепить ещё</button></div>');
+      'Ваза обожжена и сияет глазурью. Настоящую вы слепите своими руками в «Сенсорике».<span class="hint-more"> Она будет тяжёлой, тёплой и только вашей.</span>',
+      '<div class="row"><button class="chip" type="button" id="savePic">' + (TOUCH ? "Сохранить фото" : "Скачать фото") + '</button>' +
+      '<button class="chip" type="button" id="again">Слепить ещё</button></div>' +
+      (cta ? '<a class="btn btn-glaze game-cta" href="' + cta.href + '" target="_blank" rel="noopener">Записаться в мастерскую</a>' : ""), "done");
     document.getElementById("savePic").addEventListener("click", savePicture);
-    document.getElementById("again").addEventListener("click", startLump);
+    document.getElementById("again").addEventListener("click", restart);
   }
   // Открытка с готовой вазой 1080×1350: на телефоне — в галерею через «Поделиться», на компьютере — файлом
   var TOUCH = window.matchMedia && matchMedia("(pointer: coarse)").matches;
@@ -899,6 +1034,7 @@
   canvas.addEventListener("pointerdown", function (e) {
     setPointer(e);
     pointer.onCanvas = true;
+    markPlaying();
     if (interactive() || state === "lump" || state === "fire") {
       pointer.down = true; pointer.fresh = true;
       if (interactive()) canvas.setPointerCapture(e.pointerId);
@@ -909,11 +1045,20 @@
     setPointer(e); pointer.onCanvas = true;
     ui.ring.classList.toggle("is-on", interactive() && (e.pointerType === "mouse" || pointer.down));
   });
-  function release() { pointer.down = false; paint.last = null; if (!matchMedia("(hover: hover)").matches) ui.ring.classList.remove("is-on"); }
+  function release() {
+    if (!pointer.down) return;
+    pointer.down = false; paint.last = null;
+    if (!matchMedia("(hover: hover)").matches) ui.ring.classList.remove("is-on");
+    // отпустили палец — форма или роспись сохраняются
+    if (state === "shape") saveSoon();
+    else if (state === "paint" && paint.changed) { paint.changed = false; saveSoon(); }
+  }
   // долгое нажатие на телефоне открывает меню и выделение — в игре оно не нужно
   canvas.addEventListener("contextmenu", function (e) { e.preventDefault(); });
   canvas.addEventListener("pointerup", release);
   canvas.addEventListener("pointercancel", release);
+  // палец ушёл с глины и отпущен уже за её пределами (на ком и печи захвата нет)
+  window.addEventListener("pointerup", release);
   canvas.addEventListener("pointerleave", function () { if (!pointer.down) { pointer.onCanvas = false; ui.ring.classList.remove("is-on"); finger.visible = false; } });
 
   /* ---------------------------------------------------------------- цикл */
@@ -944,7 +1089,6 @@
     if (state !== "transfer" && state !== "cooling" && state !== "fire" && state !== "cracked") clay.rotation.y += dA;
 
     if (dirty) rebuild();
-    if (focus !== "kiln") framing(focus);
 
     flames.forEach(function (f) {
       var n = Math.sin(time * 9 + f.seed) * .5 + Math.sin(time * 23 + f.seed * 3) * .3;
@@ -972,30 +1116,27 @@
   resize();
   framing("wheel"); snapCamera();
   started = true;
-  startLump();
-  // ?demo=shape — сразу второй этап (для проверки кадра и скриншотов)
-  if (/[?&]demo=shape/.test(location.search)) {
-    tweens.length = 0; clay.position.y = 0; clay.scale.set(1, 1, 1);
-    H = presetProfile("jar", R); openK = 1; wobbleK = 0; dirty = true;
-    startShape();
-  } else if (/[?&]demo=(paint|fire)/.test(location.search)) {
-    tweens.length = 0; clay.position.y = 0; clay.scale.set(1, 1, 1);
-    H = presetProfile("vase", R); openK = 1; wobbleK = 0; dirty = true;
-    if (/demo=fire/.test(location.search)) {
-      setStep("fire"); focus = "kiln"; framing("kiln"); snapCamera(); spinGoal = 0;
-      piece.position.set(KX, 0, 0); beginFiring();
-    } else {
-      skinBisque(); clayMat.map = skinTex; clayMat.color.set(0xffffff);
-      clayMat.roughness = .86; clayMat.clearcoat = 0; clayMat.bumpScale = .5; clayMat.needsUpdate = true;
-      startPaint();
+
+  function begin() {
+    var demo = (location.search.match(/[?&]demo=(\w+)/) || [])[1];
+    var saved = loadSave();
+    var tmp = new Float32Array(N);
+    // ?demo=shape|fire|paint|done — сразу нужный этап (для проверки кадра и скриншотов), без сохранения
+    if (demo === "shape") { placeShape(tmp, presetProfile("jar", tmp)); matWet(); skinNeutral(); startShape(); }
+    else if (demo === "fire") restore({ step: "fire", R: tmp, H: presetProfile("vase", tmp) });
+    else if (demo === "paint") restore({ step: "paint", R: tmp, H: presetProfile("vase", tmp) });
+    else if (demo === "done") {
+      restore({ step: "done", R: tmp, H: presetProfile("amphora", tmp) });
+      drawBand("meander", outerV(30), "#2b1c30"); drawBand("chuvash", outerV(16), "#9e4b35"); drawBand("dots", outerV(38), "#3fc1c9");
     }
-  } else if (/[?&]demo=done/.test(location.search)) {
-    tweens.length = 0; clay.position.y = 0; clay.scale.set(1, 1, 1);
-    H = presetProfile("amphora", R); openK = 1; wobbleK = 0; dirty = true;
-    skinBisque(); clayMat.map = skinTex; clayMat.color.set(0xffffff);
-    drawBand("meander", outerV(30), "#2b1c30"); drawBand("chuvash", outerV(16), "#9e4b35"); drawBand("dots", outerV(38), "#3fc1c9");
-    clayMat.roughness = .3; clayMat.clearcoat = 1; clayMat.clearcoatRoughness = .08; clayMat.bumpScale = .15; clayMat.needsUpdate = true;
-    startDone();
+    else if (saved && saved.step !== "lump") restore(saved);
+    else startLump();
+    kick();
   }
-  kick();
+  // Первый вход: ком падает на круг, когда уходит заставка, а не под ней
+  if (document.documentElement.classList.contains("is-splash")) {
+    state = "intro";
+    window.addEventListener("splashdone", begin, { once: true });
+    kick();
+  } else begin();
 })();
