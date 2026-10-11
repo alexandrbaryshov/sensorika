@@ -426,6 +426,9 @@
   function markPlaying() {
     var d = document.documentElement;
     if (d.classList.contains("game-on")) return;
+    // На телефоне заголовок сворачивается по высоте: фиксируем её в пикселях, чтобы CSS плавно довёл до нуля
+    var intro = heroEl.querySelector(".hero-intro");
+    if (intro && intro.offsetHeight) { intro.style.height = intro.offsetHeight + "px"; void intro.offsetHeight; }
     d.classList.add("game-on");
     save();
   }
@@ -777,11 +780,41 @@
   }
 
   /* ---------- 4. роспись */
-  var paint = { color: "#2b1c30", size: 0.05, tool: "brush", last: null };
+  var paint = { color: "#2b1c30", size: 0.05, tool: "brush", last: null, snapped: false };
   var PALETTE = [
     ["#2b1c30", "Аубергин (чёрный ангоб)"], ["#9e4b35", "Терракота"], ["#c8352b", "Красный"], ["#d6a23e", "Охра"],
     ["#3d8c4f", "Зелёный"], ["#3fc1c9", "Бирюза"], ["#8f7fd0", "Лаванда"], ["#f6efe7", "Белый ангоб"]
   ];
+  var ORNAMENTS = [["meander", "Греческий меандр"], ["chuvash", "Чувашский орнамент"], ["wave", "Узор «Волна»"], ["dots", "Узор «Точки»"]];
+
+  // «Назад» в росписи: перед каждым действием (мазок, пояс, смывка) кладём снимок росписи в стек.
+  // Снимки — отдельные холсты из пула, чтобы не создавать по 4 МБ на каждый мазок.
+  var UNDO_MAX = 12, undoStack = [], undoPool = [];
+  function copySkin(to, from) {
+    var g = to.getContext("2d");
+    g.save(); g.globalAlpha = 1; g.globalCompositeOperation = "copy"; g.drawImage(from, 0, 0); g.restore();
+  }
+  function snapSkin() {
+    var c = undoStack.length >= UNDO_MAX ? undoStack.shift() : (undoPool.pop() || makeCanvas(SKIN, SKIN));
+    copySkin(c, skinCv);
+    undoStack.push(c);
+    updateUndo();
+  }
+  function undoPaint() {
+    var c = undoStack.pop();
+    if (!c || state !== "paint") return;
+    copySkin(skinCv, c);
+    skinTex.needsUpdate = true;
+    undoPool.push(c);
+    updateUndo();
+    saveSoon();
+  }
+  function clearUndo() { while (undoStack.length) undoPool.push(undoStack.pop()); updateUndo(); }
+  function updateUndo() { var b = document.getElementById("undo"); if (b) b.disabled = !undoStack.length; }
+  document.addEventListener("keydown", function (e) {
+    if (state === "paint" && (e.ctrlKey || e.metaKey) && !e.shiftKey && e.code === "KeyZ") { e.preventDefault(); undoPaint(); }
+  });
+
   function startPaint() {
     state = "paint"; grab(true);
     tip("Коснитесь вазы кистью");
@@ -791,21 +824,23 @@
     var sw = PALETTE.map(function (p, i) {
       return '<button class="swatch" type="button" style="--c:' + p[0] + '" data-color="' + p[0] + '" aria-label="' + p[1] + '" title="' + p[1] + '" aria-pressed="' + (i === 0) + '"></button>';
     }).join("");
+    var orn = ORNAMENTS.map(function (o) {
+      return '<button class="chip" type="button" data-orn="' + o[0] + '" aria-pressed="false"><span class="orn-ico orn-' + o[0] + '" aria-hidden="true"></span>' + o[1] + "</button>";
+    }).join("");
     // На телефоне инструменты — одна строка с прокруткой вбок (.tools), чтобы панель не съедала место у вазы
     panel("Роспись",
       'Коснитесь вазы — круг проведёт поясок.<span class="hint-more"> Орнамент ляжет туда, куда вы нажмёте.</span>',
       '<p class="label">Цвет</p><div class="row row-swatches">' + sw + "</div>" +
       '<div class="tools"><p class="label">Кисть и орнамент</p><div class="row">' +
       '<button class="chip" type="button" data-size="0.05" aria-pressed="true">Тонкая кисть</button>' +
-      '<button class="chip" type="button" data-size="0.12" aria-pressed="false">Широкая кисть</button>' +
-      '<button class="chip" type="button" data-orn="meander" aria-pressed="false">Меандр</button>' +
-      '<button class="chip" type="button" data-orn="chuvash" aria-pressed="false">Чувашский</button>' +
-      '<button class="chip" type="button" data-orn="wave" aria-pressed="false">Волна</button>' +
-      '<button class="chip" type="button" data-orn="dots" aria-pressed="false">Точки</button></div>' +
+      '<button class="chip" type="button" data-size="0.12" aria-pressed="false">Широкая кисть</button>' + orn + "</div>" +
       '<div class="row"><button class="chip" type="button" id="spinToggle" aria-pressed="true">Круг крутится</button>' +
       '<button class="chip" type="button" id="wipe">Смыть роспись</button></div></div>' +
-      '<button class="btn btn-glaze" type="button" id="toGlaze">Глазуровать и обжечь <span class="ico ico-arrow" aria-hidden="true"></span></button>', "paint");
+      '<div class="row row-actions"><button class="btn btn-undo" type="button" id="undo" title="Отменить последнее действие (Ctrl+Z)" disabled><span class="ico ico-undo" aria-hidden="true"></span>Назад</button>' +
+      '<button class="btn btn-glaze" type="button" id="toGlaze">Глазуровать <span class="ico ico-arrow" aria-hidden="true"></span></button></div>', "paint");
+    clearUndo();
     var C = ui.controls;
+    document.getElementById("undo").addEventListener("click", undoPaint);
     C.querySelectorAll("[data-color]").forEach(function (b) {
       b.addEventListener("click", function () {
         paint.color = b.dataset.color;
@@ -823,6 +858,7 @@
         paint.tool = b.dataset.orn; toolBtns(b);
         if (e.detail === 0) { // с клавиатуры: кладём пояс на случайную высоту
           var v = outerV(Math.floor(rand(.25, .85) * (N - 1)));
+          snapSkin();
           drawBand(paint.tool, v, paint.color);
           saveSoon();
         }
@@ -834,7 +870,7 @@
       this.textContent = on ? "Круг крутится" : "Круг стоит";
       spinGoal = on ? 1.0 : 0;
     });
-    document.getElementById("wipe").addEventListener("click", function () { skinBisque(); saveSoon(); });
+    document.getElementById("wipe").addEventListener("click", function () { snapSkin(); skinBisque(); saveSoon(); });
     document.getElementById("toGlaze").addEventListener("click", startGlaze);
   }
 
@@ -927,6 +963,7 @@
     if (paint.tool !== "brush") {
       if (pointer.fresh) {
         var v = clamp(uv.y, outerV(2), outerV(N - 3));
+        snapSkin();
         drawBand(paint.tool, v, paint.color);
         paint.changed = true;
       }
@@ -934,6 +971,8 @@
       return;
     }
     pointer.fresh = false;
+    // один мазок от касания до отпускания — один шаг «Назад», даже если палец соскальзывал с вазы
+    if (!paint.snapped) { snapSkin(); paint.snapped = true; }
     strokeUV(paint.last || uv, uv);
     paint.last = uv;
     paint.changed = true;
@@ -961,9 +1000,10 @@
     // кнопка записи появляется только сейчас: на ПК — под аркой, на телефоне — в панели (.game-cta), чтобы не уходить за край экрана
     heroEl.classList.add("cta-on");
     var cta = heroEl.querySelector(".hero-cta");
+    // «Сохранить фото» — заметная кнопка с мягкой пульсацией, чтобы её не пропустили
     panel("Готово!",
-      'Ваза обожжена и сияет глазурью. Настоящую вы слепите своими руками в «Сенсорике».<span class="hint-more"> Она будет тяжёлой, тёплой и только вашей.</span>',
-      '<div class="row"><button class="chip" type="button" id="savePic">' + (TOUCH ? "Сохранить фото" : "Скачать фото") + '</button>' +
+      'Ваза обожжена и сияет глазурью. Настоящую слепите в «Сенсорике»!<span class="hint-more"> Она будет тяжёлой, тёплой и только вашей.</span>',
+      '<div class="row"><button class="btn btn-save" type="button" id="savePic"><span class="ico ico-camera" aria-hidden="true"></span>Сохранить фото</button>' +
       '<button class="chip" type="button" id="again">Слепить ещё</button></div>' +
       (cta ? '<a class="btn btn-glaze game-cta" href="' + cta.href + '" target="_blank" rel="noopener">Записаться в мастерскую</a>' : ""), "done");
     document.getElementById("savePic").addEventListener("click", savePicture);
@@ -988,39 +1028,92 @@
     renderer.setSize(size.x, size.y, false);
     camera.aspect = asp; camera.updateProjectionMatrix();
     // пояс-орнамент: ромбы со звёздами, как под первым экраном
-    var bandY = H - 190, bh = 74;
+    var bandY = 1112, bh = 74;
     g.fillStyle = "#e7a082"; g.fillRect(0, bandY, W, bh);
     g.strokeStyle = g.fillStyle = "#2b1c30"; g.lineWidth = 5;
     for (var x = 0; x < W + 120; x += 120) {
       g.beginPath(); g.moveTo(x, bandY + 8); g.lineTo(x + 56, bandY + bh / 2); g.lineTo(x, bandY + bh - 8); g.lineTo(x - 56, bandY + bh / 2); g.closePath(); g.stroke();
       g.beginPath(); g.moveTo(x, bandY + 24); g.lineTo(x + 13, bandY + bh / 2); g.lineTo(x, bandY + bh - 24); g.lineTo(x - 13, bandY + bh / 2); g.closePath(); g.fill();
     }
+    g.fillStyle = "#1f1424"; g.fillRect(0, bandY + bh, W, H - bandY - bh);
     g.textAlign = "center"; g.fillStyle = "#f6decf";
     g.font = "64px Ledger, Forum, serif";
     g.fillText("МОЯ ПЕРВАЯ ВАЗА", W / 2, 110);
-    g.font = "40px 'Bad Script', cursive"; g.fillStyle = "#f0b49a";
-    g.fillText("творческая мастерская «Сенсорика» · Чебоксары", W / 2, H - 58);
+    // Контакты мастерской под поясом: логотип, название, адрес и телефон из data/site.js
+    var st = (window.SITE && window.SITE.studio) || {};
+    var logo = document.querySelector(".brand-mark"), fy = bandY + bh, tx = 72;
+    if (logo && logo.complete && logo.naturalWidth) {
+      g.save(); g.beginPath(); g.arc(72 + 54, fy + 82, 54, 0, Math.PI * 2); g.clip();
+      g.drawImage(logo, 72, fy + 28, 108, 108); g.restore();
+      g.strokeStyle = "rgba(233,178,147,.5)"; g.lineWidth = 3;
+      g.beginPath(); g.arc(72 + 54, fy + 82, 56, 0, Math.PI * 2); g.stroke();
+      tx = 72 + 108 + 36;
+    }
+    function line(text, font, size, color, y) {
+      var max = W - tx - 56;
+      g.font = font.replace("#", size);
+      while (g.measureText(text).width > max && size > 20) { size -= 1; g.font = font.replace("#", size); }
+      g.fillStyle = color; g.fillText(text, tx, y);
+    }
+    g.textAlign = "left";
+    line("Творческая мастерская «" + (st.name || "Сенсорика") + "»", "#px 'Bad Script', cursive", 44, "#f0b49a", fy + 60);
+    line([st.city, st.address].filter(Boolean).join(", "), "#px 'Golos Text', sans-serif", 31, "#f6decf", fy + 104);
+    if (st.phone) line(st.phone, "600 #px 'Golos Text', sans-serif", 34, "#f6decf", fy + 146);
     return out;
   }
+  var PHOTO_NAME = "moya-vaza-sensorika.jpg";
   function download(blob) {
     var a = document.createElement("a");
-    a.download = "moya-vaza-sensorika.png";
+    a.download = PHOTO_NAME;
     a.href = URL.createObjectURL(blob);
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
   }
+  // Кадр «снят»: вспышка в арке, готовая открытка всплывает фотокарточкой и улетает в кнопку
+  function snapEffect(card) {
+    if (REDUCED || !card.animate) return;
+    var flash = document.createElement("div");
+    flash.className = "snap-flash";
+    stageEl.appendChild(flash);
+    setTimeout(function () { flash.remove(); }, 700);
+    var r = stageEl.getBoundingClientRect(), w = Math.min(Math.max(r.width * 1.05, 180), 300);
+    var wrap = document.createElement("div");
+    wrap.className = "snap-card"; wrap.setAttribute("aria-hidden", "true");
+    wrap.appendChild(card);
+    wrap.style.left = (r.left + r.width / 2 - w / 2) + "px";
+    wrap.style.width = w + "px";
+    document.body.appendChild(wrap);
+    var h = wrap.offsetHeight, top = Math.max(8, r.top + r.height / 2 - h / 2);
+    wrap.style.top = top + "px";
+    var btn = document.getElementById("savePic"), b = btn && btn.getBoundingClientRect();
+    var dx = b ? b.left + b.width / 2 - (r.left + r.width / 2) : 0, dy = b ? b.top + b.height / 2 - (top + h / 2) : h;
+    wrap.animate([
+      { opacity: 0, transform: "scale(1.12)" },
+      { opacity: 1, transform: "scale(1) rotate(0deg)", offset: .14 },
+      { opacity: 1, transform: "scale(.96) rotate(-3deg)", offset: .62 },
+      { opacity: 0, transform: "translate(" + dx + "px," + dy + "px) scale(.12) rotate(-12deg)" }
+    ], { duration: 1800, easing: "cubic-bezier(.45,0,.25,1)", fill: "forwards" }).onfinish = function () { wrap.remove(); };
+  }
   function savePicture() {
-    var card = renderPostcard();
+    var btn = document.getElementById("savePic");
+    if (btn) btn.classList.add("is-saved");
+    var card = renderPostcard(), t0 = performance.now();
+    snapEffect(card);
     card.toBlob(function (blob) {
       if (!blob) return;
-      var file = new File([blob], "moya-vaza-sensorika.png", { type: "image/png" });
-      if (TOUCH && navigator.canShare && navigator.canShare({ files: [file] })) {
-        navigator.share({ files: [file], title: "Моя первая ваза", text: "Слепил(а) вазу в мастерской «Сенсорика»" })
-          .catch(function (err) { if (err && err.name !== "AbortError") download(blob); });
-      } else {
-        download(blob);
-      }
-    }, "image/png");
+      // Телефон: «Поделиться» должен открыться в пределах секунды после нажатия, иначе Safari его не пустит.
+      // Компьютер: файл сохраняется, когда карточка долетела до кнопки.
+      var wait = Math.max(0, (TOUCH ? 600 : 1500) - (performance.now() - t0));
+      setTimeout(function () {
+        var file = new File([blob], PHOTO_NAME, { type: "image/jpeg" });
+        if (TOUCH && navigator.canShare && navigator.canShare({ files: [file] })) {
+          navigator.share({ files: [file], title: "Моя первая ваза", text: "Слепил(а) вазу в мастерской «Сенсорика»" })
+            .catch(function (err) { if (err && err.name !== "AbortError") download(blob); });
+        } else {
+          download(blob);
+        }
+      }, wait);
+    }, "image/jpeg", 0.92);
   }
   /* ---------------------------------------------------------------- указатель */
   var pointer = { ndc: new V2(), down: false, onCanvas: false, fresh: false, x: 0, y: 0 };
@@ -1047,7 +1140,7 @@
   });
   function release() {
     if (!pointer.down) return;
-    pointer.down = false; paint.last = null;
+    pointer.down = false; paint.last = null; paint.snapped = false;
     if (!matchMedia("(hover: hover)").matches) ui.ring.classList.remove("is-on");
     // отпустили палец — форма или роспись сохраняются
     if (state === "shape") saveSoon();

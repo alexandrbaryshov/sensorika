@@ -37,7 +37,7 @@
     .is-splash body { overflow: hidden; }
     .splash {
       position: fixed; inset: 0; z-index: 200; place-items: center; padding: 24px;
-      background: radial-gradient(56% 42% at 50% 64%, rgb(179 104 74 / .34), rgb(125 62 48 / .1) 60%, transparent 78%), #1f1424;
+      background: radial-gradient(50% 40% at 50% 66%, rgb(214 128 88 / .4), rgb(150 76 56 / .14) 58%, transparent 80%), #221627;
       color: #f4e6df; text-align: center;
       transition: opacity .7s cubic-bezier(.16, 1, .3, 1), visibility 0s linear .7s;
     }
@@ -47,13 +47,9 @@
     .splash-mark { width: 76px; height: 76px; border-radius: 50%; box-shadow: 0 0 0 3px #1f1424, 0 0 0 4.5px rgb(233 178 147 / .45); }
     .splash-name { margin: 16px 0 0; font: 700 2.9rem/1 "Amatic SC", "Comic Sans MS", cursive; letter-spacing: .06em; text-transform: uppercase; color: #ecc9bd; }
     .splash-tag { margin: 6px 0 0; font: 400 1.05rem/1.2 "Bad Script", cursive; color: #c9b5c6; }
-    .splash-wheel { display: block; width: min(250px, 66vw); height: auto; margin-top: 18px; overflow: visible; }
-    .splash-bar { display: block; width: 140px; height: 2px; margin-top: 14px; border-radius: 2px; background: rgb(244 230 223 / .14); overflow: hidden; }
+    .splash-wheel { display: block; width: min(264px, 70vw); height: auto; margin-top: 14px; }
+    .splash-bar { display: block; width: 140px; height: 2px; margin-top: 12px; border-radius: 2px; background: rgb(244 230 223 / .14); overflow: hidden; }
     .splash-bar i { display: block; height: 100%; background: #e9b293; transform-origin: left; animation: sp-bar 4s linear both; }
-    .sp-move { animation: sp-move var(--t) linear infinite; }
-    .sp-streak { animation: sp-streak 3.2s linear infinite; }
-    @keyframes sp-move { from { transform: translateX(calc(var(--d) * -1px)); } to { transform: none; } }
-    @keyframes sp-streak { to { stroke-dashoffset: 100; } }
     @keyframes sp-bar { from { transform: scaleX(0); } to { transform: none; } }
     @media (prefers-reduced-motion: reduce) { .splash *, .splash *::before { animation: none !important; } }
   </style>
@@ -67,48 +63,183 @@
     <img class="splash-mark" src="assets/img/logo-mark.webp" width="280" height="280" alt="" fetchpriority="high">
     <p class="splash-name">Сенсорика</p>
     <p class="splash-tag">творческая мастерская</p>
-    <svg class="splash-wheel" viewBox="0 0 240 200" width="240" height="200" focusable="false">
-      <defs>
-        <radialGradient id="spBat" cx=".42" cy=".38" r=".7"><stop offset="0" stop-color="#4f3a38"/><stop offset="1" stop-color="#30242a"/></radialGradient>
-        <linearGradient id="spShade" x1="0" x2="1" y1="0" y2="0">
-          <stop offset="0" stop-color="#0f0810" stop-opacity=".62"/>
-          <stop offset=".2" stop-color="#0f0810" stop-opacity=".16"/>
-          <stop offset=".37" stop-color="#ffecdc" stop-opacity=".26"/>
-          <stop offset=".52" stop-color="#ffecdc" stop-opacity="0"/>
-          <stop offset=".8" stop-color="#0f0810" stop-opacity=".26"/>
-          <stop offset="1" stop-color="#0f0810" stop-opacity=".66"/>
-        </linearGradient>
-        <clipPath id="spVase"><path d="M105 166H135V160Q135 157 130 157C131 153 132 151 133 149C142 142 156 130 162 112C166 98 160 86 152 80C146 75 136 73 134 70V52C134 49 140 48 140 46V42H100V46C100 48 106 49 106 52V70C104 73 94 75 88 80C80 86 74 98 78 112C84 130 98 142 107 149C108 151 109 153 110 157Q105 157 105 160Z"/></clipPath>
-        <pattern id="spTongue" width="7" height="10" y="74" patternUnits="userSpaceOnUse"><rect x="1" y="-3" width="5" height="13" rx="2.5" fill="#2b1c30"/></pattern>
-        <pattern id="spMeander" width="16" height="12" y="90" patternUnits="userSpaceOnUse" viewBox="0 0 28 28" preserveAspectRatio="none"><path d="M0 25.5H28M21 25.5V5H5v14h10v-8h-5M0 1.5H28" fill="none" stroke="#2b1c30" stroke-width="3" stroke-linecap="square"/></pattern>
-        <pattern id="spWave" width="14" height="18" y="105" patternUnits="userSpaceOnUse" viewBox="0 0 28 28" preserveAspectRatio="none"><rect width="28" height="28" fill="#2b1c30"/><path d="M0 24 0 18C4 8 14 4 20 10 24 14 19 19 16 15 14 12 20 11 21 15 23 20 26 20 28 18V24Z" fill="#d98a62"/></pattern>
-        <pattern id="spRays" width="9" height="18" y="130" patternUnits="userSpaceOnUse"><path d="M0 18 4.5 0 9 18Z" fill="#2b1c30"/></pattern>
-      </defs>
-      <ellipse cx="120" cy="188" rx="80" ry="7" fill="#000" opacity=".35"/>
-      <path d="M24 166v12a96 18 0 0 0 192 0v-12Z" fill="#241920"/>
-      <ellipse cx="120" cy="166" rx="96" ry="18" fill="url(#spBat)"/>
-      <g fill="none" stroke-width="2.2">
-        <ellipse class="sp-streak" cx="120" cy="166" rx="86" ry="16" pathLength="100" stroke="#cf8a68" stroke-opacity=".5" stroke-dasharray="9 7 3 14 6 11"/>
-        <ellipse class="sp-streak" cx="120" cy="166" rx="68" ry="12.7" pathLength="100" stroke="#140c0e" stroke-opacity=".5" stroke-dasharray="6 10 12 8"/>
-        <ellipse class="sp-streak" cx="120" cy="166" rx="48" ry="9" pathLength="100" stroke="#cf8a68" stroke-opacity=".38" stroke-dasharray="14 9 5 12"/>
-      </g>
-      <ellipse cx="120" cy="166" rx="24" ry="4" fill="#000" opacity=".4"/>
-      <g clip-path="url(#spVase)">
-        <rect x="70" y="40" width="100" height="130" fill="#d98a62"/>
-        <rect x="70" y="40" width="100" height="30" fill="#2b1c30"/>
-        <g class="sp-move" style="--d:49;--t:.81s"><rect x="40" y="74" width="200" height="10" fill="url(#spTongue)"/></g>
-        <rect x="70" y="86" width="100" height="2" fill="#2b1c30"/>
-        <g class="sp-move" style="--d:64;--t:.82s"><rect x="40" y="90" width="210" height="12" fill="url(#spMeander)"/></g>
-        <g class="sp-move" style="--d:70;--t:.85s"><rect x="40" y="105" width="210" height="18" fill="url(#spWave)"/></g>
-        <rect x="70" y="104" width="100" height="2" fill="#2b1c30"/>
-        <g class="sp-move" style="--d:45;--t:.85s"><rect x="40" y="130" width="200" height="18" fill="url(#spRays)"/></g>
-        <rect x="70" y="148" width="100" height="22" fill="#2b1c30"/>
-        <rect x="74" y="40" width="92" height="130" fill="url(#spShade)"/>
-      </g>
-    </svg>
+    <canvas class="splash-wheel" id="splashVase" width="240" height="220"></canvas>
     <span class="splash-bar"><i></i></span>
   </div>
 </div>
+<script>
+  // Амфора на гончарном круге в объёме. Three.js ещё не загружен, поэтому ваза считается попиксельно:
+  // для каждой точки находим высоту и угол на поверхности, свет берём по нормали, узор — по углу (он и вращается).
+  // Геометрия и свет неподвижны и считаются один раз; в каждом кадре меняется только то, какая часть узора видна.
+  (function () {
+    var d = document.documentElement, cv = document.getElementById("splashVase");
+    if (!d.classList.contains("is-splash") || !cv || !cv.getContext) return;
+    var W = 240, H = 220, dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cv.width = W * dpr; cv.height = H * dpr;
+    var g = cv.getContext("2d");
+    var K = 0.22, KC = Math.sqrt(1 - K * K);   // смотрим чуть сверху: окружности видны эллипсами
+    var VS = 1.18;                             // масштаб вазы относительно круга
+    var CX = 120, BASE = 172, HT = 128 * VS, TAU = Math.PI * 2;
+    var i, j, x;
+
+    // Профиль амфоры [высота от низа ножки, радиус], сглаженный кубическим сплайном
+    var PR = [[0, 15], [4, 15], [8, 11], [14, 10], [24, 16], [40, 32], [58, 43], [72, 42], [86, 33], [94, 20], [98, 13], [112, 12], [118, 15], [122, 19], [128, 19]]
+      .map(function (p) { return [p[0] * VS, p[1] * VS]; });
+    var S = 4, NR = Math.round(HT * S) + 1, RT = new Float32Array(NR), DT = new Float32Array(NR);
+    var m = PR.map(function (p, k) { var a = PR[Math.max(0, k - 1)], b = PR[Math.min(PR.length - 1, k + 1)]; return (b[1] - a[1]) / (b[0] - a[0]); });
+    for (i = 0, j = 0; i < NR; i++) {
+      var hv = i / S;
+      while (j < PR.length - 2 && hv > PR[j + 1][0]) j++;
+      var p0 = PR[j], p1 = PR[j + 1], dh = p1[0] - p0[0], t = (hv - p0[0]) / dh, t2 = t * t, t3 = t2 * t;
+      RT[i] = (2 * t3 - 3 * t2 + 1) * p0[1] + (t3 - 2 * t2 + t) * dh * m[j] + (3 * t2 - 2 * t3) * p1[1] + (t3 - t2) * dh * m[j + 1];
+    }
+    for (i = 0; i < NR; i++) DT[i] = (RT[Math.min(NR - 1, i + 1)] - RT[Math.max(0, i - 1)]) * S / 2;
+    function at(arr, h) { var q = h * S; if (q <= 0) return arr[0]; if (q >= NR - 1) return arr[NR - 1]; var k = q | 0; return arr[k] + (arr[k + 1] - arr[k]) * (q - k); }
+
+    // Роспись, развёрнутая по окружности: x 0–360 вокруг вазы, y 0–128 от губы вниз
+    var TW = 720, TH = 256, tc = document.createElement("canvas");
+    tc.width = TW; tc.height = TH;
+    var tx = tc.getContext("2d"), INK = "#2a171c", CLAY = "#e8935c";
+    tx.scale(2, 2);
+    tx.fillStyle = CLAY; tx.fillRect(0, 0, 360, 128);
+    tx.fillStyle = tx.strokeStyle = INK;
+    function band(y, h) { tx.fillRect(0, y, 360, h); }
+    band(0, 8); band(27, 3); band(45, 1.6); band(71, 1.6); band(87, 1.6); band(110, 1.4); band(117, 11);
+    tx.lineWidth = 1.6;
+    tx.beginPath(); tx.moveTo(0, 15);
+    for (x = 0; x < 360; x += 10) { tx.lineTo(x + 5, 21); tx.lineTo(x + 10, 15); }
+    tx.stroke();
+    for (x = 0; x < 360; x += 12) {           // язычки на плече
+      tx.beginPath(); tx.moveTo(x + 2, 30); tx.lineTo(x + 2, 39); tx.arc(x + 6, 39, 4, Math.PI, 0, true); tx.lineTo(x + 10, 30); tx.fill();
+    }
+    tx.lineWidth = 2;
+    for (x = 0; x <= 360; x += 36) {          // ромбы с ядром, как в чувашской вышивке, и кресты между ними
+      var mx = x + 18;
+      tx.beginPath(); tx.moveTo(mx, 50); tx.lineTo(mx + 11, 59); tx.lineTo(mx, 68); tx.lineTo(mx - 11, 59); tx.closePath(); tx.stroke();
+      tx.beginPath(); tx.moveTo(mx, 54.5); tx.lineTo(mx + 5, 59); tx.lineTo(mx, 63.5); tx.lineTo(mx - 5, 59); tx.closePath(); tx.fill();
+      tx.fillRect(x - 1, 54, 2, 10); tx.fillRect(x - 5, 58, 10, 2);
+    }
+    tx.lineCap = "square";
+    for (x = 0; x < 360; x += 15) {           // меандр
+      tx.save(); tx.translate(x, 74); tx.scale(15 / 28, 11 / 28); tx.lineWidth = 3.4;
+      tx.beginPath(); tx.moveTo(0, 26); tx.lineTo(28, 26); tx.moveTo(21, 26); tx.lineTo(21, 5); tx.lineTo(5, 5); tx.lineTo(5, 19); tx.lineTo(15, 19); tx.lineTo(15, 11); tx.lineTo(10, 11);
+      tx.stroke(); tx.restore();
+    }
+    for (x = 0; x < 360; x += 22.5) {         // лучи у ножки
+      tx.beginPath(); tx.moveTo(x + 4, 110); tx.lineTo(x + 11.25, 92); tx.lineTo(x + 18.5, 110); tx.fill();
+    }
+    tx.fillStyle = CLAY; band(124, 1.2);
+    var TEX = tx.getImageData(0, 0, TW, TH).data;
+
+    // Свет: тёплый ключевой слева сверху, лавандовый контровой справа, блик глазури
+    function norm(v) { var l = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]); return [v[0] / l, v[1] / l, v[2] / l]; }
+    var L1 = norm([-0.55, 0.5, 0.67]), L2 = norm([0.85, 0.15, 0.4]), HV = norm([L1[0], L1[1] + K, L1[2] + KC]);
+
+    var X0 = CX - 46 * VS, Y0 = BASE - HT - 7, vw = Math.ceil(92 * VS * dpr), vh = Math.ceil((BASE + 6 - Y0) * dpr);
+    var vc = document.createElement("canvas"); vc.width = vw; vc.height = vh;
+    var vx = vc.getContext("2d"), img = vx.createImageData(vw, vh), px = img.data;
+    var RTOP = RT[NR - 1], RIN = RTOP - 2.6 * VS, MY = BASE - HT;
+    var PO = [], U0 = [], TR = [], LR = [], LG = [], LB = [], CR = [], CG = [], CB = [];
+    for (var row = 0; row < vh; row++) {
+      var sy = Y0 + (row + 0.5) / dpr, hh = BASE - sy;
+      for (var col = 0; col < vw; col++) {
+        var o = (row * vw + col) * 4, dx = X0 + (col + 0.5) / dpr - CX;
+        var h = hh, R = RT[0], c = 0, q = 0, it;
+        for (it = 0; it < 4; it++) {               // точка на поверхности, которая видна в этом пикселе
+          R = at(RT, h < 0 ? 0 : h > HT ? HT : h);
+          q = dx / R; c = q * q < 1 ? Math.sqrt(1 - q * q) : 0;
+          h = hh + R * c * K;
+        }
+        var A = Math.max(0, Math.min((R - Math.abs(dx)) * dpr + 0.5, h * dpr + 0.5, (HT - h) * dpr + 0.5, 1));
+        var sr = 0, sg = 0, sb = 0, ar = 0, ag = 0, ab = 0, sn = q < -1 ? -1 : q > 1 ? 1 : q;
+        if (A > 0) {
+          var s = at(DT, h), ln = Math.sqrt(1 + s * s), nx = sn / ln, ny = -s / ln, nz = c / ln;
+          var df = Math.max(0, nx * L1[0] + ny * L1[1] + nz * L1[2]);
+          var f2 = Math.max(0, nx * L2[0] + ny * L2[1] + nz * L2[2]);
+          var sp = Math.max(0, nx * HV[0] + ny * HV[1] + nz * HV[2]); sp *= sp; sp *= sp; sp *= sp; sp *= sp; sp *= sp;
+          var fr = Math.max(0, 1 - (ny * K + nz * KC)); fr = fr * fr * fr;
+          var ao = h < 9 * VS ? 0.72 + h / VS * 0.031 : 1;
+          sr = (0.36 + df * 0.98 + f2 * 0.2) * ao; sg = (0.33 + df * 0.86 + f2 * 0.18) * ao; sb = (0.36 + df * 0.72 + f2 * 0.3) * ao;
+          ar = sp * 135 + fr * 60; ag = sp * 122 + fr * 52; ab = sp * 110 + fr * 88;
+        }
+        // горло сверху: внутренняя стенка и кромка губы
+        var mr = 0, mg = 0, mb = 0, MA = 0;
+        if (A < 1) {
+          var ey = sy - MY, e = (dx / RTOP) * (dx / RTOP) + (ey / (RTOP * K)) * (ey / (RTOP * K));
+          MA = Math.max(0, Math.min(1, (1 - Math.sqrt(e)) * RTOP * K * dpr + 0.5));
+          if (MA > 0) {
+            if ((dx / RIN) * (dx / RIN) + (ey / (RIN * K)) * (ey / (RIN * K)) < 1) {
+              var dk = 0.9 - 0.7 * (ey / (RIN * K) + 1) / 2; mr = 150 * dk; mg = 74 * dk; mb = 50 * dk;
+            } else { var lt = 0.8 - dx / RTOP * 0.4; mr = 70 * lt + 26; mg = 50 * lt + 18; mb = 56 * lt + 22; }
+          }
+        }
+        var OA = A + MA * (1 - A);
+        px[o + 3] = OA * 255;
+        if (OA <= 0) continue;
+        var wA = A / OA, wM = MA * (1 - A) / OA;
+        if (A > 0) {
+          var u = Math.asin(sn) / TAU; u -= Math.floor(u);
+          PO.push(o); U0.push(u); TR.push((Math.min(TH - 1, Math.max(0, ((HT - h) / VS * 2) | 0))) * TW * 4);
+          LR.push(sr * wA); LG.push(sg * wA); LB.push(sb * wA);
+          CR.push(ar * wA + mr * wM); CG.push(ag * wA + mg * wM); CB.push(ab * wA + mb * wM);
+        } else { px[o] = mr; px[o + 1] = mg; px[o + 2] = mb; }
+      }
+    }
+    var n = PO.length;
+
+    function vase(rot) {
+      for (var k = 0; k < n; k++) {
+        var u = U0[k] - rot; u -= Math.floor(u);
+        var fu = u * TW, i0 = fu | 0, f = fu - i0, a0 = TR[k] + i0 * 4, a1 = TR[k] + ((i0 + 1) % TW) * 4, o = PO[k];
+        px[o] = (TEX[a0] + (TEX[a1] - TEX[a0]) * f) * LR[k] + CR[k];
+        px[o + 1] = (TEX[a0 + 1] + (TEX[a1 + 1] - TEX[a0 + 1]) * f) * LG[k] + CG[k];
+        px[o + 2] = (TEX[a0 + 2] + (TEX[a1 + 2] - TEX[a0 + 2]) * f) * LB[k] + CB[k];
+      }
+      vx.putImageData(img, 0, 0);
+    }
+
+    // Гончарный круг: планшайба с разводами глины, которые бегут вместе с вазой
+    var RX = 100, RY = RX * K, TK = 12;
+    var STREAKS = [[90, 0.3, 1.1, "rgba(232,156,114,.5)", 2.4], [90, 3.4, 0.6, "rgba(232,156,114,.38)", 2], [76, 1.6, 1.4, "rgba(16,9,12,.5)", 2.2],
+      [62, 4.4, 1.0, "rgba(232,156,114,.42)", 2], [62, 0.9, 0.5, "rgba(16,9,12,.45)", 1.8], [46, 2.6, 1.5, "rgba(232,156,114,.35)", 2], [32, 5.2, 1.2, "rgba(16,9,12,.4)", 1.6]];
+    function disc(cx, cy, r, sy, stops) {
+      g.save(); g.translate(cx, cy); g.scale(1, sy);
+      var gr = g.createRadialGradient(stops[0], stops[1], 0, 0, 0, r);
+      for (var k = 2; k < stops.length; k += 2) gr.addColorStop(stops[k], stops[k + 1]);
+      g.fillStyle = gr; g.beginPath(); g.arc(0, 0, r, 0, TAU); g.fill(); g.restore();
+    }
+    function wheel(rot) {
+      disc(CX, BASE + TK + RY + 3, 100, 0.1, [0, 0, 0, "rgba(0,0,0,.5)", 1, "rgba(0,0,0,0)"]);
+      var side = g.createLinearGradient(CX - RX, 0, CX + RX, 0);
+      side.addColorStop(0, "#6a4a48"); side.addColorStop(0.35, "#43303a"); side.addColorStop(1, "#1f161b");
+      g.fillStyle = side;
+      g.beginPath(); g.ellipse(CX, BASE + TK, RX, RY, 0, 0, Math.PI); g.lineTo(CX - RX, BASE); g.ellipse(CX, BASE, RX, RY, 0, Math.PI, 0, true); g.closePath(); g.fill();
+      disc(CX, BASE, RX, K, [-36, -46, 0, "#8a6460", 0.55, "#573c40", 1, "#33242a"]);
+      g.strokeStyle = "rgba(255,214,190,.2)"; g.lineWidth = 1.2;
+      g.beginPath(); g.ellipse(CX, BASE, RX, RY, 0, 0, TAU); g.stroke();
+      g.lineCap = "round";
+      for (var k = 0; k < STREAKS.length; k++) {
+        var st = STREAKS[k], a0 = st[1] - rot * TAU;
+        g.strokeStyle = st[3]; g.lineWidth = st[4];
+        g.beginPath(); g.ellipse(CX, BASE, st[0], st[0] * K, 0, a0, a0 + st[2]); g.stroke();
+      }
+      disc(CX, BASE + 1, 32, K, [0, 0, 0, "rgba(10,5,8,.6)", 1, "rgba(10,5,8,0)"]);
+    }
+
+    var rot = 0, last = 0, still = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    function frame(now) {
+      if (!cv.isConnected) return;
+      if (last) rot = (rot + (now - last) / 3600) % 1;
+      last = now;
+      g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      wheel(rot); vase(rot);
+      g.drawImage(vc, X0, Y0, vw / dpr, vh / dpr);
+      if (!still) requestAnimationFrame(frame);
+    }
+    frame(0);
+  })();
+</script>
 <script>
   // Заставка держится 4 секунды и до готовности 3D-игры, но не дольше 9 секунд
   (function () {
