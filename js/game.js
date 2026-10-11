@@ -1003,22 +1003,32 @@
   }
   function startDone() {
     state = "done"; clayMat.emissiveIntensity = 0;
+    photo = null;
     focus = "done"; framing("done");
     setStep("done"); spinGoal = 0.35;
     // кнопка записи появляется только сейчас: на ПК — под аркой, на телефоне — в панели (.game-cta), чтобы не уходить за край экрана
     heroEl.classList.add("cta-on");
     var cta = heroEl.querySelector(".hero-cta");
-    // «Сохранить фото» — заметная кнопка с мягкой пульсацией, чтобы её не пропустили
+    // «Сохранить фото» — заметная кнопка с мягкой пульсацией, чтобы её не пропустили; «Поделиться» — там, где браузер умеет отправлять файлы
     panel("Готово!",
       'Ваза обожжена и сияет глазурью. Настоящую слепите в «Сенсорике»!<span class="hint-more"> Она будет тяжёлой, тёплой и только вашей.</span>',
       '<div class="row"><button class="btn btn-save" type="button" id="savePic"><span class="ico ico-camera" aria-hidden="true"></span>Сохранить фото</button>' +
+      (CAN_SHARE ? '<button class="btn btn-share" type="button" id="sharePic"><span class="ico ico-share" aria-hidden="true"></span>Поделиться</button>' : "") +
       '<button class="chip" type="button" id="again">Слепить ещё</button></div>' +
       (cta ? '<a class="btn btn-glaze game-cta" href="' + cta.href + '" target="_blank" rel="noopener">Записаться в мастерскую</a>' : ""), "done");
     document.getElementById("savePic").addEventListener("click", savePicture);
+    if (CAN_SHARE) document.getElementById("sharePic").addEventListener("click", sharePicture);
     document.getElementById("again").addEventListener("click", restart);
   }
-  // Открытка с готовой вазой 1080×1350: на телефоне — в галерею через «Поделиться», на компьютере — файлом
-  var TOUCH = window.matchMedia && matchMedia("(pointer: coarse)").matches;
+  // Открытка с готовой вазой 1080×1350. «Сохранить фото»: на iPhone и iPad — через меню «Поделиться» (в фото оттуда сохраняет
+  // только «Сохранить изображение»), на Android и компьютере — файлом, на Android он появляется в галерее.
+  // «Поделиться» отправляет саму картинку в мессенджер или соцсеть.
+  var IOS = /iP(hone|od|ad)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  var PHOTO_NAME = "moya-vaza-sensorika.jpg";
+  var CAN_SHARE = (function () {
+    try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File([""], PHOTO_NAME, { type: "image/jpeg" })] })); }
+    catch (e) { return false; }
+  })();
   function renderPostcard() {
     var W = 1080, H = 1350;
     var size = new V2(); renderer.getSize(size);
@@ -1069,7 +1079,21 @@
     if (st.phone) line(st.phone, "600 #px 'Golos Text', sans-serif", 34, "#f6decf", fy + 146);
     return out;
   }
-  var PHOTO_NAME = "moya-vaza-sensorika.jpg";
+  // Открытка рисуется при первом нажатии и дальше берётся готовой (сбрасывает её startDone):
+  // повторное «Поделиться» открывается сразу, пока браузер ещё считает его ответом на нажатие
+  var photo = null;
+  function postcard() {
+    if (photo) return photo;
+    var p = photo = { card: renderPostcard(), file: null, ready: [] };
+    p.card.toBlob(function (blob) {
+      if (!blob) { if (photo === p) photo = null; return; }
+      p.file = new File([blob], PHOTO_NAME, { type: "image/jpeg" });
+      p.ready.forEach(function (f) { f(p.file); });
+      p.ready.length = 0;
+    }, "image/jpeg", 0.92);
+    return p;
+  }
+  function withFile(cb) { var p = postcard(); if (p.file) cb(p.file); else p.ready.push(cb); }
   function download(blob) {
     var a = document.createElement("a");
     a.download = PHOTO_NAME;
@@ -1102,26 +1126,27 @@
       { opacity: 0, transform: "translate(" + dx + "px," + dy + "px) scale(.12) rotate(-12deg)" }
     ], { duration: 1800, easing: "cubic-bezier(.45,0,.25,1)", fill: "forwards" }).onfinish = function () { wrap.remove(); };
   }
+  // Только файл, без текста и заголовка: получив вместе с картинкой подпись, многие мессенджеры и соцсети
+  // отправляют одну подпись. Название, адрес и телефон мастерской и так нарисованы на открытке.
+  function shareFile(file) {
+    navigator.share({ files: [file] }).catch(function (err) { if (err && err.name !== "AbortError") download(file); });
+  }
   function savePicture() {
     var btn = document.getElementById("savePic");
     if (btn) btn.classList.add("is-saved");
-    var card = renderPostcard(), t0 = performance.now();
-    snapEffect(card);
-    card.toBlob(function (blob) {
-      if (!blob) return;
-      // Телефон: «Поделиться» должен открыться в пределах секунды после нажатия, иначе Safari его не пустит.
-      // Компьютер: файл сохраняется, когда карточка долетела до кнопки.
-      var wait = Math.max(0, (TOUCH ? 600 : 1500) - (performance.now() - t0));
-      setTimeout(function () {
-        var file = new File([blob], PHOTO_NAME, { type: "image/jpeg" });
-        if (TOUCH && navigator.canShare && navigator.canShare({ files: [file] })) {
-          navigator.share({ files: [file], title: "Моя первая ваза", text: "Слепил(а) вазу в мастерской «Сенсорика»" })
-            .catch(function (err) { if (err && err.name !== "AbortError") download(blob); });
-        } else {
-          download(blob);
-        }
-      }, wait);
-    }, "image/jpeg", 0.92);
+    var t0 = performance.now(), viaShare = IOS && CAN_SHARE;
+    snapEffect(postcard().card);
+    withFile(function (file) {
+      // iPhone: меню «Поделиться» должно открыться в пределах секунды после нажатия, иначе Safari его не пустит.
+      // Остальные: файл сохраняется, когда карточка долетела до кнопки.
+      var wait = Math.max(0, (viaShare ? 600 : 1500) - (performance.now() - t0));
+      setTimeout(function () { if (viaShare) shareFile(file); else download(file); }, wait);
+    });
+  }
+  function sharePicture() {
+    withFile(function (file) {
+      if (navigator.canShare({ files: [file] })) shareFile(file); else download(file);
+    });
   }
   /* ---------------------------------------------------------------- указатель */
   var pointer = { ndc: new V2(), down: false, onCanvas: false, fresh: false, x: 0, y: 0 };

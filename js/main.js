@@ -49,7 +49,7 @@
   // На телефоне resize летит при каждом показе/скрытии адресной строки во время прокрутки.
   // Раскладка зависит только от ширины, поэтому пересчитываем её раз в кадр и лишь когда ширина изменилась.
   var lastW = document.documentElement.clientWidth, resizeRaf = 0;
-  window.addEventListener("resize", function () {
+  function relayout() {
     if (resizeRaf) return;
     resizeRaf = requestAnimationFrame(function () {
       resizeRaf = 0;
@@ -60,7 +60,10 @@
       if (arcEl) arcEl.parentNode.style.fontSize = "";
       layoutArc();
     });
-  });
+  }
+  window.addEventListener("resize", relayout);
+  // Под заставкой прокрутка выключена и полосы прокрутки нет; когда заставка уходит, полоса появляется и окно сужается без resize
+  window.addEventListener("splashdone", relayout);
   // Телефон: ниша с кругом берёт высоту, оставшуюся от рельса этапов и места под панель, — всё видно без прокрутки.
   // Место под панель постоянное (--panel-res в CSS), поэтому арка не меняет размер от этапа к этапу.
   var hero = document.getElementById("hero"), rail = document.getElementById("stepsRail");

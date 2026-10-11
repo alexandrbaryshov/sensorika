@@ -337,7 +337,8 @@
       <!-- инструменты этапа, которые должны быть на виду сразу под заголовком (роспись: остановить круг, смыть) -->
       <div class="game-tools" id="gameTools" hidden></div>
       <p class="game-hint" id="gameHint" aria-live="polite">Глина легла на круг неровно, и её бьёт из стороны в сторону. <strong>Зажмите кнопку или саму глину</strong>, чтобы отцентровать ком.</p>
-      <div class="game-controls" id="gameControls"></div>
+      <!-- кнопка первого этапа стоит в разметке сразу: когда игра загрузится, панель не вырастет и «Пропустить игру» не съедет -->
+      <div class="game-controls is-lump" id="gameControls"><button class="hold" type="button" id="holdCenter"><span>Центровать</span></button></div>
     </div>
   </div>
 
