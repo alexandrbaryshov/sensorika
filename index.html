@@ -307,6 +307,8 @@
       ["assets/vendor/three.min.js", "js/game.js"].forEach(function (src) {
         var s = document.createElement("script");
         s.src = src; s.async = false;
+        // игра не загрузилась — кнопка записи нужна сразу
+        s.onerror = function () { document.getElementById("hero").classList.add("cta-on"); };
         document.body.appendChild(s);
       });
     }

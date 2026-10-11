@@ -363,6 +363,10 @@ p { margin: 0 0 1em; text-wrap: pretty; }
 
 .hero-actions { display: flex; flex-direction: column; align-items: center; z-index: 3; }
 .hero-cta { white-space: nowrap; }
+/* Запись появляется, когда ваза готова (.cta-on ставит js/game.js; без 3D — сразу) */
+.hero:not(.cta-on) .hero-cta { display: none; }
+.hero.cta-on .hero-cta { animation: cta-in .7s var(--ease-out) both; }
+@keyframes cta-in { from { opacity: 0; transform: translateY(10px) scale(.96); } }
 .link-skip { display: inline-flex; align-items: center; gap: .35em; color: #a99aa4; text-decoration: none; }
 .link-skip:hover { color: #e0d2dc; text-decoration: underline; }
 
@@ -420,6 +424,10 @@ p { margin: 0 0 1em; text-wrap: pretty; }
 
   .hero-actions { left: calc(1115 * var(--u)); top: calc(2 * var(--dy) + 1113 * var(--u)); width: calc(523 * var(--u)); gap: calc(22 * var(--u)); }
   .hero-cta { width: 100%; height: calc(95 * var(--u)); min-height: 0; padding: 0; font-size: calc(34 * var(--u)); font-weight: 400; box-shadow: none; }
+  /* место кнопки остаётся пустым, чтобы «Пропустить игру» не прыгала, когда запись появится */
+  .hero:not(.cta-on) .hero-cta { display: inline-flex; visibility: hidden; }
+  /* на ПК текст подсказки крупнее относительно арки: ставим её ниже, где проём шире */
+  .stage-tip { top: 22%; max-width: 88%; font-size: max(13px, calc(27 * var(--u))); }
   .link-skip { font-size: calc(30 * var(--u)); }
 
   .band-ornament { height: calc(140 * var(--u)); }

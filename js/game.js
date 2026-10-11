@@ -18,8 +18,6 @@
     ring: document.getElementById("cursorRing"),
     tip: document.getElementById("stageTip")
   };
-  var SITE = window.SITE || { studio: {} };
-  var BOOK = SITE.studio.yclients || SITE.studio.vk || "#contacts";
   var REDUCED = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
   // Телефоны и планшеты: меньше пикселей и легче тени, чтобы сцена не грела аппарат и не съедала батарею
   var LITE = window.matchMedia && matchMedia("(pointer: coarse), (max-width: 1099.98px)").matches;
@@ -29,6 +27,7 @@
     if (f) f.hidden = false;
     var panel = document.getElementById("gamePanel");
     if (panel) panel.hidden = true;
+    if (heroEl) heroEl.classList.add("cta-on");
   }
   if (!window.THREE || !canvas) { fallback(); return; }
 
@@ -404,6 +403,7 @@
     focus = "wheel"; framing("wheel");
     setStep("lump");
     grab(false); hold(true);
+    heroEl.classList.remove("cta-on");
     openK = 0; wobbleK = 1; center = 0;
     shapeLump(); dirty = true;
     clayMat.color.copy(COLORS.wet); clayMat.roughness = .6; clayMat.clearcoat = .1; clayMat.clearcoatRoughness = .6;
@@ -825,9 +825,10 @@
     state = "done"; clayMat.emissiveIntensity = 0;
     focus = "done"; framing("done");
     setStep("done"); spinGoal = 0.35;
+    // кнопка записи под аркой появляется только сейчас, поэтому в панели её не дублируем
+    heroEl.classList.add("cta-on");
     panel("Готово!",
       "Ваза обожжена и сияет глазурью. Настоящую вы сделаете своими руками в «Сенсорике», и она будет тяжёлой, тёплой и только вашей.",
-      '<a class="btn btn-glaze" href="' + BOOK + '" target="_blank" rel="noopener">Записаться в мастерскую</a>' +
       '<div class="row"><button class="chip" type="button" id="savePic">' + (TOUCH ? "Сохранить в галерею" : "Скачать фото") + '</button>' +
       '<button class="chip" type="button" id="again">Слепить ещё</button></div>');
     document.getElementById("savePic").addEventListener("click", savePicture);
