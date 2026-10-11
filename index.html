@@ -329,12 +329,14 @@
   <!-- док: на десктопе даёт панели подрасти вверх, когда этап длинный (роспись), вместо прокрутки внутри -->
   <div class="game-dock">
     <div class="game-panel" id="gamePanel">
-      <button class="game-restart" type="button" id="gameRestart" title="Начать сначала"><span class="ico ico-restart" aria-hidden="true"></span><span class="game-restart-label">Заново</span></button>
+      <button class="game-restart" type="button" id="gameRestart" title="Начать игру с кома глины"><span class="ico ico-restart" aria-hidden="true"></span><span class="game-restart-label">Начать сначала</span></button>
       <div class="game-text" aria-live="polite">
         <p class="game-step" id="gameStep">Этап 1 из 5</p>
         <h2 class="game-title" id="gameTitle">Ком глины</h2>
-        <p class="game-hint" id="gameHint">Глина легла на круг неровно, и её бьёт из стороны в сторону. <strong>Зажмите кнопку или саму глину</strong>, чтобы отцентровать ком.</p>
       </div>
+      <!-- инструменты этапа, которые должны быть на виду сразу под заголовком (роспись: остановить круг, смыть) -->
+      <div class="game-tools" id="gameTools" hidden></div>
+      <p class="game-hint" id="gameHint" aria-live="polite">Глина легла на круг неровно, и её бьёт из стороны в сторону. <strong>Зажмите кнопку или саму глину</strong>, чтобы отцентровать ком.</p>
       <div class="game-controls" id="gameControls"></div>
     </div>
   </div>

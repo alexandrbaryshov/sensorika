@@ -13,6 +13,7 @@
     step: document.getElementById("gameStep"),
     title: document.getElementById("gameTitle"),
     hint: document.getElementById("gameHint"),
+    tools: document.getElementById("gameTools"),
     controls: document.getElementById("gameControls"),
     frieze: document.getElementById("stepsRail"),
     ring: document.getElementById("cursorRing"),
@@ -376,11 +377,13 @@
     if (ui.restart) ui.restart.hidden = name === "done";
     heroEl.classList.toggle("is-done", name === "done");
   }
-  function panel(title, hint, html, kind) {
+  function panel(title, hint, html, kind, tools) {
     ui.title.textContent = title;
     ui.hint.innerHTML = hint;
     ui.controls.className = "game-controls" + (kind ? " is-" + kind : "");
     ui.controls.innerHTML = html || "";
+    ui.tools.innerHTML = tools || "";
+    ui.tools.hidden = !tools;
   }
 
   /* ---------------------------------------------------------------- сохранение */
@@ -477,7 +480,7 @@
     }
   }
 
-  // «Заново» на любом этапе. Если работа уже есть, кнопка просит подтвердить вторым нажатием.
+  // «Начать сначала» на любом этапе. Если работа уже есть, кнопка просит подтвердить вторым нажатием.
   function restart() {
     tweens.length = 0; morph = null; fire = null;
     holding = false; holdBtn = null; pointer.down = false; paint.last = null;
@@ -493,14 +496,14 @@
     clearTimeout(confirmTimer);
     if (!ui.restart) return;
     ui.restart.classList.remove("is-confirm");
-    ui.restart.querySelector(".game-restart-label").textContent = "Заново";
+    ui.restart.querySelector(".game-restart-label").textContent = "Начать сначала";
   }
   if (ui.restart) ui.restart.addEventListener("click", function () {
     markPlaying();
     var risky = state !== "drop" && state !== "lump" && state !== "intro";
     if (risky && !ui.restart.classList.contains("is-confirm")) {
       ui.restart.classList.add("is-confirm");
-      ui.restart.querySelector(".game-restart-label").textContent = "Начать заново?";
+      ui.restart.querySelector(".game-restart-label").textContent = "Точно сначала?";
       clearTimeout(confirmTimer);
       confirmTimer = setTimeout(resetRestartBtn, 3500);
       return;
@@ -509,8 +512,10 @@
     restart();
   });
   // любое касание панели игры — тоже начало работы с глиной (click — для клавиатуры)
-  ui.controls.addEventListener("pointerdown", markPlaying);
-  ui.controls.addEventListener("click", markPlaying);
+  [ui.controls, ui.tools].forEach(function (el) {
+    el.addEventListener("pointerdown", markPlaying);
+    el.addEventListener("click", markPlaying);
+  });
   // Подсказка прямо над глиной; прячется, как только человек начал действовать
   function tip(text) { if (!ui.tip) return; if (text) ui.tip.textContent = text; ui.tip.classList.toggle("is-hidden", !text); }
   function grab(on) { stageEl.classList.toggle("is-grab", !!on); }
@@ -833,11 +838,12 @@
       '<p class="label">Цвет</p><div class="row row-swatches">' + sw + "</div>" +
       '<div class="tools"><p class="label">Кисть и орнамент</p><div class="row">' +
       '<button class="chip" type="button" data-size="0.05" aria-pressed="true">Тонкая кисть</button>' +
-      '<button class="chip" type="button" data-size="0.12" aria-pressed="false">Широкая кисть</button>' + orn + "</div>" +
-      '<div class="row"><button class="chip" type="button" id="spinToggle" aria-pressed="true">Круг крутится</button>' +
-      '<button class="chip" type="button" id="wipe">Смыть роспись</button></div></div>' +
+      '<button class="chip" type="button" data-size="0.12" aria-pressed="false">Широкая кисть</button>' + orn + "</div></div>" +
       '<div class="row row-actions"><button class="btn btn-undo" type="button" id="undo" title="Отменить последнее действие (Ctrl+Z)" disabled><span class="ico ico-undo" aria-hidden="true"></span>Назад</button>' +
-      '<button class="btn btn-glaze" type="button" id="toGlaze">Глазуровать <span class="ico ico-arrow" aria-hidden="true"></span></button></div>', "paint");
+      '<button class="btn btn-glaze" type="button" id="toGlaze">Глазуровать <span class="ico ico-arrow" aria-hidden="true"></span></button></div>', "paint",
+      // на виду сразу под заголовком: без них непонятно, что круг можно остановить, а роспись — смыть
+      '<button class="chip chip-tool" type="button" id="spinToggle" aria-pressed="false"><span class="ico ico-pause" aria-hidden="true"></span><span class="lbl">Остановить круг</span></button>' +
+      '<button class="chip chip-tool" type="button" id="wipe"><span class="ico ico-wipe" aria-hidden="true"></span>Смыть роспись</button>');
     clearUndo();
     var C = ui.controls;
     document.getElementById("undo").addEventListener("click", undoPaint);
@@ -865,10 +871,12 @@
       });
     });
     document.getElementById("spinToggle").addEventListener("click", function () {
-      var on = this.getAttribute("aria-pressed") !== "true";
-      this.setAttribute("aria-pressed", on ? "true" : "false");
-      this.textContent = on ? "Круг крутится" : "Круг стоит";
-      spinGoal = on ? 1.0 : 0;
+      // aria-pressed = «круг остановлен»; подпись говорит, что случится по нажатию
+      var stopped = this.getAttribute("aria-pressed") !== "true";
+      this.setAttribute("aria-pressed", stopped ? "true" : "false");
+      this.querySelector(".lbl").textContent = stopped ? "Запустить круг" : "Остановить круг";
+      this.querySelector(".ico").className = "ico " + (stopped ? "ico-play" : "ico-pause");
+      spinGoal = stopped ? 0 : 1.0;
     });
     document.getElementById("wipe").addEventListener("click", function () { snapSkin(); skinBisque(); saveSoon(); });
     document.getElementById("toGlaze").addEventListener("click", startGlaze);
