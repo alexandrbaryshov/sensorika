@@ -76,11 +76,16 @@
     <div class="candles candles-right" aria-hidden="true"><img src="assets/plates/candles-right.webp" srcset="assets/plates/candles-right-360.webp 360w, assets/plates/candles-right.webp 640w" sizes="(min-width: 1100px) 17vw, min(42vw, 200px)" width="640" height="640" alt=""><span class="flame" style="--x:37%;--y:43.6%;--d:-.7s"></span><span class="flame" style="--x:64.1%;--y:22.9%;--d:-2.1s"></span></div>
   </div>
 
-  <div class="game-panel" id="gamePanel" aria-live="polite">
-    <p class="game-step" id="gameStep">Этап 1 из 5</p>
-    <h2 class="game-title" id="gameTitle">Ком глины</h2>
-    <p class="game-hint" id="gameHint">Глина легла на круг неровно, и её бьёт из стороны в сторону. <strong>Зажмите кнопку или саму глину</strong>, чтобы отцентровать ком.</p>
-    <div class="game-controls" id="gameControls"></div>
+  <!-- док: на десктопе даёт панели подрасти вверх, когда этап длинный (роспись), вместо прокрутки внутри -->
+  <div class="game-dock">
+    <div class="game-panel" id="gamePanel">
+      <div class="game-text" aria-live="polite">
+        <p class="game-step" id="gameStep">Этап 1 из 5</p>
+        <h2 class="game-title" id="gameTitle">Ком глины</h2>
+        <p class="game-hint" id="gameHint">Глина легла на круг неровно, и её бьёт из стороны в сторону. <strong>Зажмите кнопку или саму глину</strong>, чтобы отцентровать ком.</p>
+      </div>
+      <div class="game-controls" id="gameControls"></div>
+    </div>
   </div>
 
   <div class="hero-actions">

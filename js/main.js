@@ -61,6 +61,17 @@
       layoutArc();
     });
   });
+  // Телефон: ниша с кругом берёт высоту, оставшуюся от рельса этапов и панели, — всё видно без прокрутки (см. .niche в CSS)
+  var hero = document.getElementById("hero"), rail = document.getElementById("stepsRail"), gamePanel = document.getElementById("gamePanel");
+  if (hero && rail && gamePanel && "ResizeObserver" in window) {
+    var fit = new ResizeObserver(function () {
+      hero.style.setProperty("--rail-h", rail.offsetHeight + "px");
+      hero.style.setProperty("--panel-h", gamePanel.offsetHeight + "px");
+    });
+    fit.observe(rail);
+    fit.observe(gamePanel);
+  }
+
   var S = window.SITE;
   if (!S) return;
 

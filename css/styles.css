@@ -245,6 +245,12 @@ p { margin: 0 0 1em; text-wrap: pretty; }
 .stage-wall { background: url("../assets/plates/stage.webp") center / cover; -webkit-mask: radial-gradient(closest-side, #000 55%, transparent 100%); mask: radial-gradient(closest-side, #000 55%, transparent 100%); }
 .stage canvas { display: block; width: 100%; height: 100%; touch-action: pan-y; outline: none; }
 .stage.is-grab canvas { cursor: none; touch-action: none; }
+/* Ком и печь: глину зажимают пальцем, поэтому страница под ним не должна уезжать */
+.stage.is-hold canvas { touch-action: none; }
+/* Игра: долгое нажатие не выделяет текст и картинку, без синей подсветки касания и меню */
+.niche, .steps-rail, .game-panel { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.hero { -webkit-tap-highlight-color: transparent; }
+@media (pointer: coarse) { .hero { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; } }
 .stage-fallback { position: absolute; inset: 20% 10% auto; font-family: "Bad Script", var(--f-hand); font-size: 1.3rem; line-height: 1.2; color: var(--clay); text-align: center; }
 .arch { object-fit: fill; filter: drop-shadow(0 10px 18px rgb(12 5 14 / .6)) drop-shadow(0 2px 3px rgb(12 5 14 / .5)); }
 /* Свет свечей: тёплое пятно на стене и ножках арки, мерцает в такт пламени */
@@ -294,11 +300,12 @@ p { margin: 0 0 1em; text-wrap: pretty; }
   box-shadow: 0 0 0 4px rgb(63 193 201 / .18);
 }
 .cursor-ring.is-on { opacity: 1; }
+/* Подсказка стоит там, где проём арки уже широкий: выше её края уходят под расписной свод */
 .stage-tip {
-  position: absolute; left: 50%; top: 6%; margin: 0; transform: translateX(-50%);
+  position: absolute; left: 50%; top: 18%; margin: 0; transform: translateX(-50%);
   padding: .3em 1em .4em; border-radius: 999px;
   background: rgb(31 20 36 / .78); box-shadow: 0 0 0 1px rgb(234 159 125 / .45), 0 10px 24px -10px rgb(0 0 0 / .7);
-  color: #f6decf; font-family: "Bad Script", var(--f-hand); font-size: clamp(.95rem, 1.15vw, 1.2rem); line-height: 1.2; width: max-content; max-width: 88%; text-align: center;
+  color: #f6decf; font-family: "Bad Script", var(--f-hand); font-size: clamp(.95rem, 1.15vw, 1.2rem); line-height: 1.2; width: max-content; max-width: 80%; text-align: center;
   pointer-events: none; transition: opacity .5s var(--ease-out), transform .5s var(--ease-out);
   animation: tip-bob 2.6s ease-in-out infinite;
 }
@@ -392,7 +399,11 @@ p { margin: 0 0 1em; text-wrap: pretty; }
   .candle-light-left { left: calc(437 * var(--u)); top: calc(2 * var(--dy) + 520 * var(--u)); width: calc(960 * var(--u)); height: calc(900 * var(--u)); }
   .candle-light-right { left: calc(1355 * var(--u)); top: calc(2 * var(--dy) + 520 * var(--u)); width: calc(960 * var(--u)); height: calc(900 * var(--u)); }
 
-  .game-panel { left: calc(1958 * var(--u)); top: calc(2 * var(--dy) + 528 * var(--u)); width: calc(542 * var(--u)); min-height: calc(547 * var(--u)); max-height: calc(740 * var(--u)); overflow: auto; padding: calc(36 * var(--u)) calc(40 * var(--u)) calc(40 * var(--u)); border-radius: calc(26 * var(--u)); scrollbar-width: thin; }
+  /* Док от подзаголовка до низа сцены. Панель стоит на своей высоте макета (верх 528),
+     а если этап не помещается, растёт вверх за счёт отступа ::before. Правый край — как у кнопки «Записаться» в шапке. */
+  .game-dock { left: calc(1958 * var(--u)); top: calc(var(--dy) + 420 * var(--u)); width: calc(659 * var(--u)); height: calc(var(--dy) + 848 * var(--u)); display: flex; flex-direction: column; z-index: 3; pointer-events: none; }
+  .game-dock::before { content: ""; flex: 0 1 calc(var(--dy) + 108 * var(--u)); }
+  .game-panel { flex: none; pointer-events: auto; min-height: calc(547 * var(--u)); max-height: 100%; overflow: auto; padding: calc(36 * var(--u)) calc(40 * var(--u)) calc(40 * var(--u)); border-radius: calc(26 * var(--u)); scrollbar-width: thin; }
   .game-step { font-size: calc(34 * var(--u)); line-height: calc(40 * var(--u)); }
   .game-title { font-size: calc(50 * var(--u)); line-height: 1.2; margin-top: calc(16 * var(--u)); }
   .game-hint { font-size: max(14px, calc(27 * var(--u))); line-height: 1.32; margin: calc(14 * var(--u)) 0 calc(26 * var(--u)); }
@@ -402,6 +413,10 @@ p { margin: 0 0 1em; text-wrap: pretty; }
   .game-controls .row:has([data-preset]) { max-width: calc(330 * var(--u)); }
   .game-controls .btn { font-size: max(14px, calc(30 * var(--u))); font-weight: 400; min-height: calc(75 * var(--u)); padding: 0 calc(34 * var(--u)); box-shadow: none; }
   .hold { font-size: max(14px, calc(30 * var(--u))); min-height: calc(75 * var(--u)); }
+  /* Роспись — самый длинный этап: инструменты компактнее, чтобы всё влезало без прокрутки */
+  .game-controls.is-paint { gap: calc(14 * var(--u)); }
+  .game-controls.is-paint .row { gap: calc(12 * var(--u)) calc(14 * var(--u)); }
+  .game-controls.is-paint .chip { font-size: max(13px, calc(25 * var(--u))); min-height: calc(48 * var(--u)); padding: 0 calc(20 * var(--u)); }
 
   .hero-actions { left: calc(1115 * var(--u)); top: calc(2 * var(--dy) + 1113 * var(--u)); width: calc(523 * var(--u)); gap: calc(22 * var(--u)); }
   .hero-cta { width: 100%; height: calc(95 * var(--u)); min-height: 0; padding: 0; font-size: calc(34 * var(--u)); font-weight: 400; box-shadow: none; }
@@ -425,12 +440,26 @@ p { margin: 0 0 1em; text-wrap: pretty; }
   .candle-light-right { right: -40%; bottom: -4%; width: 100%; height: 84%; }
   .steps-rail { display: flex; justify-content: center; gap: 6px; width: 100%; order: -1; margin-top: 4px; }
   .steps-rail li { flex-direction: column; gap: 6px; flex: 1 1 0; max-width: 84px; }
-  .medal { width: 46px; height: 46px; }
-  .step-name { font-size: 1rem; }
-  .game-panel { position: relative; width: min(100%, 520px); padding: 18px 18px 20px; }
-  .game-step { font-size: .95rem; }
-  .game-title { font-size: 1.5rem; line-height: 1.2; margin-top: 4px; }
-  .game-hint { font-size: .97rem; line-height: 1.5; margin: .5em 0 1em; }
+  .medal { width: 40px; height: 40px; }
+  .step-name { font-size: .95rem; }
+  .game-dock { display: contents; }
+  .game-panel { position: relative; width: min(100%, 520px); padding: 14px 16px 16px; }
+  /* название этапа и «Этап N из 5» в одну строку */
+  .game-text { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; column-gap: 12px; }
+  .game-step { order: 1; font-size: .88rem; }
+  .game-title { font-size: 1.3rem; line-height: 1.2; }
+  .game-hint { order: 2; flex-basis: 100%; font-size: .94rem; line-height: 1.42; margin: .35em 0 .8em; }
+  .game-controls { gap: 8px; }
+  .game-controls.is-paint .label { display: none; }
+  .game-controls.is-paint .chip { min-height: 34px; padding: .3em .85em; font-size: .92rem; }
+  .game-controls.is-paint .swatch { width: 30px; height: 30px; }
+  /* Рельс этапов, круг и панель помещаются в один экран: ниша ужимается на высоту панели текущего этапа.
+     --rail-h и --panel-h меряет js/main.js; 48px — зазоры сетки между ними. */
+  .niche {
+    --nh: calc(100vh - var(--head-h) - var(--rail-h, 64px) - var(--panel-h, 230px) - 48px);
+    --nh: calc(100svh - var(--head-h) - var(--rail-h, 64px) - var(--panel-h, 230px) - 48px);
+    width: min(100%, 440px, max(230px, var(--nh)) * 798 / 863);
+  }
   .hero-actions { gap: 10px; margin-top: 6px; }
   .link-skip { font-size: .95rem; }
   .hero-title, .hero-sub { order: -2; }

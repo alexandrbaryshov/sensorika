@@ -244,7 +244,8 @@
   kiln.add(kilnFill);
 
   /* ---------------------------------------------------------------- изделие */
-  var N = 44, LIP = 6, SEG = 120;
+  // На телефоне форма пересобирается каждый кадр, пока держат палец: меньше сегментов — ровнее кадры
+  var N = 44, LIP = 6, SEG = LITE ? 72 : 120;
   var WALL = 0.13, FLOOR = 0.17, BASE = 0.04;
   var P = 2 + N + LIP + N + 1;
   var R = new Float32Array(N), Rgoal = new Float32Array(N);
@@ -376,11 +377,14 @@
   function panel(title, hint, html) {
     ui.title.textContent = title;
     ui.hint.innerHTML = hint;
+    ui.controls.className = "game-controls";
     ui.controls.innerHTML = html || "";
   }
   // Подсказка прямо над глиной; прячется, как только человек начал действовать
   function tip(text) { if (!ui.tip) return; if (text) ui.tip.textContent = text; ui.tip.classList.toggle("is-hidden", !text); }
   function grab(on) { stageEl.classList.toggle("is-grab", !!on); }
+  // Этапы, где глину зажимают: касание сцены не прокручивает страницу
+  function hold(on) { stageEl.classList.toggle("is-hold", !!on); }
 
   function bindHold(btn, onDown, onUp) {
     function down(e) { if (e) e.preventDefault(); holding = true; holdBtn = btn; btn.classList.add("is-down"); if (onDown) onDown(); }
@@ -399,7 +403,7 @@
     state = "drop";
     focus = "wheel"; framing("wheel");
     setStep("lump");
-    grab(false);
+    grab(false); hold(true);
     openK = 0; wobbleK = 1; center = 0;
     shapeLump(); dirty = true;
     clayMat.color.copy(COLORS.wet); clayMat.roughness = .6; clayMat.clearcoat = .1; clayMat.clearcoatRoughness = .6;
@@ -429,6 +433,8 @@
     // «конусование»: мастер поднимает ком конусом и опускает обратно
     var base = 1.15, wave = press ? Math.sin(center * Math.PI * 4) * 0.32 * (1 - center) : 0;
     var targetH = base + Math.max(0, wave);
+    // ком не трогают и он уже осел — форма та же, геометрию не пересобираем
+    if (!press && Math.abs(targetH - H) < 1e-4) return;
     H += (targetH - H) * Math.min(1, dt * 8);
     var s = Math.sqrt(base / H);
     for (var i = 0; i < N; i++) { var t = i / (N - 1); R[i] = (0.06 + Math.pow(1 - Math.pow(t, 2.1), .5) * (1 - .08 * t)) * s; }
@@ -450,7 +456,7 @@
   function startShape() {
     state = "shape";
     setStep("shape");
-    grab(true);
+    grab(true); hold(false);
     V0 = H * meanR();
     tip("Ведите пальцем по стенке вазы");
     panel("Гончарный круг",
@@ -543,8 +549,9 @@
     void x0;
   }
   function beginFiring() {
-    state = "fire";
+    state = "fire"; hold(true);
     fire = { T: 20, phase: 0, prog: 0, stress: 0 };
+    gaugeCache = {};
     clayMat.color.copy(COLORS.wet);
     panel("Печь",
       "Держите <strong>«Жар»</strong>, чтобы поднять температуру, и держите стрелку в светлой зоне, пока не закончится этап. Резкий скачок — и глина треснет.",
@@ -554,18 +561,27 @@
     bindHold(document.getElementById("holdHeat"));
     updateGauge();
   }
+  // Шкала обновляется каждый кадр: трогаем DOM, только когда значение действительно сменилось,
+  // иначе телефон пересчитывает раскладку панели 60 раз в секунду и сцена подтормаживает
+  var gaugeCache = {};
+  function gaugeSet(id, prop, value) {
+    var key = id + prop;
+    if (gaugeCache[key] === value) return;
+    gaugeCache[key] = value;
+    var el = document.getElementById(id);
+    if (!el) return;
+    if (prop === "text") el.textContent = value; else el.style[prop] = value;
+  }
   function updateGauge() {
     var ph = PHASES[fire.phase];
-    var band = document.getElementById("gBand"), needle = document.getElementById("gNeedle");
-    if (!band) return;
-    band.style.left = (ph.lo / TMAX * 100) + "%";
-    band.style.width = ((ph.hi - ph.lo) / TMAX * 100) + "%";
-    needle.style.left = clamp(fire.T / TMAX * 100, 0, 100) + "%";
-    document.getElementById("gPhase").textContent = ph.name + " · " + (fire.phase + 1) + "/3 · " + Math.round(fire.prog / ph.need * 100) + "%";
-    document.getElementById("gTemp").textContent = Math.round(fire.T) + " °C";
-    document.getElementById("gStress").style.transform = "scaleX(" + Math.min(1, fire.stress).toFixed(3) + ")";
-  }
-  function updateFire(dt) {
+    if (!document.getElementById("gBand")) return;
+    gaugeSet("gBand", "left", (ph.lo / TMAX * 100) + "%");
+    gaugeSet("gBand", "width", ((ph.hi - ph.lo) / TMAX * 100) + "%");
+    gaugeSet("gNeedle", "left", clamp(fire.T / TMAX * 100, 0, 100).toFixed(1) + "%");
+    gaugeSet("gPhase", "text", ph.name + " · " + (fire.phase + 1) + "/3 · " + Math.round(fire.prog / ph.need * 100) + "%");
+    gaugeSet("gTemp", "text", Math.round(fire.T) + " °C");
+    gaugeSet("gStress", "transform", "scaleX(" + Math.min(1, fire.stress).toFixed(2) + ")");
+  }  function updateFire(dt) {
     var f = fire, ph = PHASES[f.phase];
     var heat = holding || (pointer.down && pointer.onCanvas);
     if (heat) f.T += (240 + f.T * 0.35) * dt;
@@ -608,7 +624,7 @@
     document.getElementById("retryFire").addEventListener("click", function () { skinNeutral(); beginFiring(); });
   }
   function finishFiring() {
-    state = "cooling"; holding = false;
+    state = "cooling"; holding = false; hold(false);
     panel("Печь", "Обжиг удался. Печь остывает, глина стала <strong>черепком</strong>: твёрдым, звонким, тёплого персикового цвета.", "");
     var T0 = fire.T, c0 = clayMat.color.clone();
     tween(1.8, function (k) {
@@ -660,6 +676,7 @@
       '<button class="chip" type="button" id="wipe">Смыть роспись</button></div>' +
       '<button class="btn btn-glaze" type="button" id="toGlaze">Глазуровать и обжечь <span class="ico ico-arrow" aria-hidden="true"></span></button>');
     var C = ui.controls;
+    C.classList.add("is-paint");
     C.querySelectorAll("[data-color]").forEach(function (b) {
       b.addEventListener("click", function () {
         paint.color = b.dataset.color;
@@ -892,6 +909,8 @@
     ui.ring.classList.toggle("is-on", interactive() && (e.pointerType === "mouse" || pointer.down));
   });
   function release() { pointer.down = false; paint.last = null; if (!matchMedia("(hover: hover)").matches) ui.ring.classList.remove("is-on"); }
+  // долгое нажатие на телефоне открывает меню и выделение — в игре оно не нужно
+  canvas.addEventListener("contextmenu", function (e) { e.preventDefault(); });
   canvas.addEventListener("pointerup", release);
   canvas.addEventListener("pointercancel", release);
   canvas.addEventListener("pointerleave", function () { if (!pointer.down) { pointer.onCanvas = false; ui.ring.classList.remove("is-on"); finger.visible = false; } });
@@ -958,6 +977,17 @@
     tweens.length = 0; clay.position.y = 0; clay.scale.set(1, 1, 1);
     H = presetProfile("jar", R); openK = 1; wobbleK = 0; dirty = true;
     startShape();
+  } else if (/[?&]demo=(paint|fire)/.test(location.search)) {
+    tweens.length = 0; clay.position.y = 0; clay.scale.set(1, 1, 1);
+    H = presetProfile("vase", R); openK = 1; wobbleK = 0; dirty = true;
+    if (/demo=fire/.test(location.search)) {
+      setStep("fire"); focus = "kiln"; framing("kiln"); snapCamera(); spinGoal = 0;
+      piece.position.set(KX, 0, 0); beginFiring();
+    } else {
+      skinBisque(); clayMat.map = skinTex; clayMat.color.set(0xffffff);
+      clayMat.roughness = .86; clayMat.clearcoat = 0; clayMat.bumpScale = .5; clayMat.needsUpdate = true;
+      startPaint();
+    }
   } else if (/[?&]demo=done/.test(location.search)) {
     tweens.length = 0; clay.position.y = 0; clay.scale.set(1, 1, 1);
     H = presetProfile("amphora", R); openK = 1; wobbleK = 0; dirty = true;
