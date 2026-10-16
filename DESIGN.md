@@ -254,7 +254,7 @@ Tactile and glazed, like a dipped pot.
 
 ### Chips
 - **Style:** transparent pill with a 1.5px pale border and pale text on the night panel.
-- **State:** selected chips fill with Fired Clay and Ink text. Used for shape presets and the «Скачать фото» and «Слепить ещё» actions at the end of the game.
+- **State:** selected chips fill with Fired Clay and Ink text. Used for blanks, brushes and ornaments while painting, and the «Скачать фото» and «Слепить ещё» actions at the end of the game.
 
 ### Cards / Containers
 - **Game panel:** dark night card (22px radius, panel drop). The step counter («Этап N из 5» on the wheel, «из 4» when decorating a blank) sits above a Golos title, then the hint (emphasis in peach), then the controls.

@@ -343,14 +343,12 @@
     for (var i = 0; i < N; i++) {
       var t = i / (N - 1), r;
       if (name === "cylinder") r = 0.93 - 0.06 * t;
-      else if (name === "bowl") r = 0.56 + 0.64 * Math.pow(Math.sin(t * Math.PI / 2), 0.75);
       else if (name === "jar") r = 0.6 + 0.3 * Math.exp(-Math.pow((t - .42) / .3, 2)) - 0.1 * smooth(t, .6, .86) + 0.14 * smooth(t, .86, 1);
-      else if (name === "mug") r = 0.86 - 0.04 * t + 0.03 * Math.exp(-Math.pow((t - .12) / .1, 2));
       else if (name === "vase") r = 0.48 + 0.58 * Math.exp(-Math.pow((t - .34) / .24, 2)) - 0.12 * smooth(t, .55, .82) + 0.28 * smooth(t, .8, 1);
       else r = 0.38 + 0.6 * Math.exp(-Math.pow((t - .42) / .22, 2)) - 0.02 * t + 0.15 * smooth(t, .88, 1); // amphora
       out[i] = r;
     }
-    return { jar: 1.75, cylinder: 1.3, bowl: 1.0, mug: 1.55, vase: 2.1, amphora: 2.3 }[name];
+    return { jar: 1.75, cylinder: 1.3, vase: 2.1, amphora: 2.3 }[name];
   }
 
   /* ---------------------------------------------------------------- заготовки для росписи */
@@ -359,6 +357,15 @@
   // Точки профиля стоят равномерно по длине, снаружи гуще (роспись видна в основном там), поэтому масштаб кисти
   // по v у каждой точки свой (pxV). Тарелку и картину расписывают в плоской развёртке, как лист бумаги.
   var CLAY_D = "#eee0cf";
+  // Дуга профиля фигурки: окружность с центром на оси (0, cy), угол a от низа дуги (0) к верху (π)
+  function arcPts(cy, r, a0, a1, n) {
+    var out = [];
+    for (var k = 0; k <= n; k++) { var a = lerp(a0, a1, k / n); out.push([r * Math.sin(a), cy - r * Math.cos(a)]); }
+    return out;
+  }
+  // Неваляшка: центр и радиус шара-туловища и шара-головы; t0 — угол, где туловище срезано площадкой донышка
+  var ROLY = { by: .58, br: .6, hy: 1.6, hr: .5 };
+  ROLY.t0 = Math.acos(ROLY.by / ROLY.br);
   var BLANK_ORDER = ["mug", "candle", "vase", "plate", "picture", "roly", "doll"];
   var BLANKS = {
     mug: {
@@ -443,23 +450,93 @@
       done: "Картина обожжена и сияет глазурью. Настоящую распишите в «Сенсорике»!<span class=\"hint-more\"> Её можно повесить на стену.</span>",
       kind: "flat", spin: false, textY: .81, y0: .09, tilt: -.12, base: "#e8d8c5", frame: { y: .86, half: 1.16, elev: .08 }
     },
-    // фигурки — сплошные тела вращения: профиль идёт от центра донышка по боку до макушки
+    // фигурки — сплошные тела вращения: профиль идёт от центра донышка по боку до макушки.
+    // Неваляшка — как советская: туловище-шар, на нём голова почти того же размера; спереди на голове плоское личико
+    // в рубчатом ободке капюшона, на плечах по бокам — круглые ручки (см. build). Лицо смотрит на зрителя (+z).
     roly: {
       name: "Неваляшка", gen: "неваляшки", acc: "неваляшку", dat: "неваляшке", card: "МОЯ НЕВАЛЯШКА", file: "moya-nevalyashka-sensorika.jpg",
       done: "Неваляшка обожжена и сияет глазурью. Настоящую распишите в «Сенсорике»!<span class=\"hint-more\"> Пусть стоит на полке и улыбается.</span>",
-      kind: "lathe", spin: true, textY: .5, frame: { y: .92, half: 1.3, elev: .2 },
+      kind: "lathe", spin: true, textY: .55, frame: { y: 1.06, half: 1.46, elev: .2 },
       parts: [
-        { w: .3, c: [[0, 0], [.12, 0], [.24, .004]] },
-        { w: 1, outer: true, c: [[.24, .004], [.5, .07], [.71, .28], [.8, .55], [.75, .84], [.58, 1.04], [.44, 1.13], [.45, 1.2], [.53, 1.32], [.56, 1.47], [.51, 1.63], [.36, 1.77], [.16, 1.83], [0, 1.845]] }
-      ]
+        // туловище срезано снизу ровной площадкой, чтобы стоять на турнетке
+        { w: .3, c: [[0, 0], [.08, 0], [ROLY.br * Math.sin(ROLY.t0), 0]] },
+        { w: 1, outer: true, c: arcPts(ROLY.by, ROLY.br, ROLY.t0, 2.62, 16).concat([[.235, 1.148]], arcPts(ROLY.hy, ROLY.hr, .62, Math.PI, 18)) }
+      ],
+      build: function (b) {
+        var s = b.surf, hy = ROLY.hy, F = .4;
+        // Лицо: перед головы срезан пологим куполом радиуса F с выпуклостью C, на нём лепка личика — носик, пухлые щёки,
+        // чуть выпуклые глаза и подбородок. Шов по краю лица закрывает ободок.
+        var A = Math.sqrt(ROLY.hr * ROLY.hr - F * F), C = .1, RF = (F * F + C * C) / (2 * C), ZC = A + C - RF;
+        // [x, y от центра лица, σx, σy, высота]
+        var RELIEF = [[0, -.14, .032, .03, .032], [-.2, -.18, .07, .065, .03], [.2, -.18, .07, .065, .03],
+          [-.16, -.03, .05, .036, .014], [.16, -.03, .05, .036, .014], [0, -.29, .07, .04, .014]];
+        function faceZ(x, dy) {
+          var q = x * x + dy * dy, z = 0;
+          for (var j = 0; j < RELIEF.length; j++) {
+            var m = RELIEF[j], ex = (x - m[0]) / m[2], ey = (dy - m[1]) / m[3];
+            z += m[4] * Math.exp(-(ex * ex + ey * ey) / 2);
+          }
+          // к краю лица лепка сходит на нет: купол встречает голову ровно под ободком
+          return ZC + Math.sqrt(RF * RF - q) + z * (1 - smooth(Math.sqrt(q), F * .75, F));
+        }
+        var p = b.geo.attributes.position, nm = b.geo.attributes.normal, e = .002;
+        for (var i = 0; i < p.count; i++) {
+          var x = p.getX(i), dy = p.getY(i) - hy;
+          if (x * x + dy * dy >= F * F) continue;
+          var z = faceZ(x, dy);
+          if (p.getZ(i) <= z) continue;
+          p.setZ(i, z);
+          var gx = (faceZ(x + e, dy) - faceZ(x - e, dy)) / (2 * e), gy = (faceZ(x, dy + e) - faceZ(x, dy - e)) / (2 * e), gl = Math.hypot(gx, gy, 1);
+          nm.setXYZ(i, -gx / gl, -gy / gl, 1 / gl);
+        }
+        b.geo.computeBoundingSphere();
+        // Ободок капюшона — тор с рубчиком; нормали считаем сами, чтобы рубчик ловил свет и не было шва
+        var T = .05, RIBS = 64, ring = new THREE.TorusGeometry(F, T, 12, RIBS * 4), rp = ring.attributes.position, rn = ring.attributes.normal;
+        for (var k = 0; k < rp.count; k++) {
+          var a = Math.atan2(rp.getY(k), rp.getX(k)), w = Math.atan2(rp.getZ(k), Math.hypot(rp.getX(k), rp.getY(k)) - F);
+          var t = T * (1 + .06 * Math.cos(RIBS * a)), dt = -T * .06 * RIBS * Math.sin(RIBS * a);
+          var ca = Math.cos(a), sa = Math.sin(a), cw = Math.cos(w), sw = Math.sin(w), r0 = F + t * cw;
+          rp.setXYZ(k, r0 * ca, r0 * sa, t * sw);
+          var ax = -r0 * sa + dt * cw * ca, ay = r0 * ca + dt * cw * sa, az = dt * sw; // вдоль ободка
+          var bx = -t * sw * ca, by = -t * sw * sa, bz = t * cw;                       // вокруг сечения
+          var nx = ay * bz - az * by, ny = az * bx - ax * bz, nz = ax * by - ay * bx, nl = Math.hypot(nx, ny, nz);
+          rn.setXYZ(k, nx / nl, ny / nl, nz / nl);
+        }
+        ring.translate(0, hy, A);
+        // Ободок и ручки берут роспись с той части фигурки, что за ними: ободок — с края лица, ручки — с плеч.
+        // u не заворачиваем через 0, поэтому треугольники у шва (лицо ровно на u = 0) не растягивают весь холст.
+        function wrapUV(g, front) {
+          var gp = g.attributes.position, uv = g.attributes.uv;
+          for (var k = 0; k < gp.count; k++) {
+            var x = gp.getX(k), v = vAtY(s, gp.getY(k)), r = s.r[surfIdx(s, v)];
+            var ang = front ? Math.atan2(x, Math.sqrt(Math.max(r * r - x * x, 0))) : Math.atan2(x, gp.getZ(k));
+            uv.setXY(k, ang / (2 * Math.PI), v);
+          }
+        }
+        wrapUV(ring, true);
+        var geos = [ring];
+        [-1, 1].forEach(function (sd) {
+          var g = new THREE.SphereGeometry(.17, 28, 18), ang = sd * 1.25;
+          g.translate(.47 * Math.sin(ang), 1.16, .47 * Math.cos(ang));
+          wrapUV(g, false);
+          geos.push(g);
+        });
+        geos.forEach(function (g) {
+          var m = new THREE.Mesh(g, clayMat);
+          m.castShadow = true; m.receiveShadow = true;
+          b.extras.push(m); b.paintable.push(m);
+        });
+      }
     },
+    // Матрёшка вытянутая, почти капсула: туловище чуть шире к поясу, плечи едва намечены, голова лишь немного уже туловища,
+    // макушка широкая и круглая, донце почти во всю ширину
     doll: {
       name: "Матрёшка", gen: "матрёшки", acc: "матрёшку", dat: "матрёшке", card: "МОЯ МАТРЁШКА", file: "moya-matryoshka-sensorika.jpg",
       done: "Матрёшка обожжена и сияет глазурью. Настоящую распишите в «Сенсорике»!<span class=\"hint-more\"> Русская красавица, расписанная вами.</span>",
-      kind: "lathe", spin: true, textY: .45, frame: { y: .95, half: 1.32, elev: .2 },
+      kind: "lathe", spin: true, textY: .7, frame: { y: 1.12, half: 1.52, elev: .2 },
       parts: [
         { w: .3, c: [[0, 0], [.3, 0], [.47, .004]] },
-        { w: 1, outer: true, c: [[.47, .004], [.55, .05], [.61, .28], [.66, .58], [.63, .88], [.52, 1.1], [.43, 1.21], [.44, 1.3], [.47, 1.47], [.43, 1.66], [.3, 1.8], [.14, 1.86], [0, 1.875]] }
+        { w: 1, outer: true, c: [[.47, .004], [.49, .02], [.497, .06], [.505, .14], [.53, .38], [.55, .62], [.545, .85], [.52, 1.08], [.48, 1.28], [.447, 1.42], [.437, 1.5], [.45, 1.6], [.468, 1.72], [.46, 1.85], [.42, 1.98], [.34, 2.09], [.2, 2.17], [0, 2.2]] }
       ]
     }
   };
@@ -767,7 +844,7 @@
   }
 
   function resetPlay() {
-    tweens.length = 0; morph = null; fire = null;
+    tweens.length = 0; fire = null;
     holding = false; holdBtn = null; pointer.down = false; paint.last = null;
     finger.visible = false; txt.on = false;
     coilMat.emissiveIntensity = 0; kilnLight.intensity = 0;
@@ -982,7 +1059,7 @@
   }
 
   /* ---------- 2. гончарный круг */
-  var morph = null;
+  // Форму ведут только пальцем, без готовых заготовок: после центровки сразу к стенке
   function startShape() {
     state = "shape";
     setStep("shape");
@@ -990,25 +1067,8 @@
     V0 = H * meanR();
     tip("Ведите пальцем по стенке вазы");
     panel("Гончарный круг",
-      'Ведите пальцем по стенке: к центру — сужаете, наружу — расширяете.<span class="hint-more"> Или возьмите готовую форму:</span>',
-      '<div class="row">' +
-      '<button class="chip" type="button" data-preset="bowl">Чаша</button>' +
-      '<button class="chip" type="button" data-preset="mug">Кружка</button>' +
-      '<button class="chip" type="button" data-preset="vase">Ваза</button>' +
-      '<button class="chip" type="button" data-preset="amphora">Амфора</button></div>' +
+      'Ведите пальцем по стенке: к центру — сужаете, наружу — расширяете.<span class="hint-more"> Глина тянется вверх, когда вы её сужаете.</span>',
       '<button class="btn btn-glaze" type="button" id="toPaint">Расписать <span class="ico ico-arrow" aria-hidden="true"></span></button>', "shape");
-    ui.controls.querySelectorAll("[data-preset]").forEach(function (c) {
-      c.addEventListener("click", function () {
-        ui.controls.querySelectorAll("[data-preset]").forEach(function (x) { x.setAttribute("aria-pressed", x === c ? "true" : "false"); });
-        var from = Float32Array.from(R), to = new Float32Array(N), h0 = H, h1 = presetProfile(c.dataset.preset, to);
-        morph = true;
-        tween(0.8, function (k) {
-          var e = easeInOut(k);
-          for (var i = 0; i < N; i++) R[i] = lerp(from[i], to[i], e);
-          H = lerp(h0, h1, e); dirty = true;
-        }, function () { morph = null; V0 = H * meanR(); saveSoon(); });
-      });
-    });
     document.getElementById("toPaint").addEventListener("click", startDrying);
     save();
   }
@@ -1017,7 +1077,6 @@
   var tmp = new V3(), planeN = new V3(), axisDir = new V3(), shapePlane = new THREE.Plane();
   function updateShape(dt) {
     finger.visible = false;
-    if (morph) return;
     if (!pointer.onCanvas && !pointer.down) return;
     camera.getWorldDirection(planeN); planeN.y = 0; planeN.normalize().negate();
     shapePlane.setFromNormalAndCoplanarPoint(planeN, piece.position);
@@ -1202,10 +1261,10 @@
     ["#2b1c30", "Аубергин (чёрный ангоб)"], ["#9e4b35", "Терракота"], ["#c8352b", "Красный"], ["#d6a23e", "Охра"],
     ["#3d8c4f", "Зелёный"], ["#3fc1c9", "Бирюза"], ["#8f7fd0", "Лаванда"], ["#f6efe7", "Белый ангоб"]
   ];
-  // Заготовки из белой глины: белый ангоб на них не виден, вместо него кобальт, как в гжели
+  // Заготовки из белой глины: вторым идёт кобальт, как в гжели; белый — последним, им пишут поверх цвета (лицо, горошек, блики)
   var PALETTE_D = [
     ["#2b1c30", "Аубергин (чёрный)"], ["#2f55a4", "Кобальт"], ["#3fc1c9", "Бирюза"], ["#3d8c4f", "Зелёный"],
-    ["#d6a23e", "Охра"], ["#c8352b", "Красный"], ["#9e4b35", "Терракота"], ["#8f7fd0", "Лаванда"]
+    ["#d6a23e", "Охра"], ["#c8352b", "Красный"], ["#9e4b35", "Терракота"], ["#8f7fd0", "Лаванда"], ["#ffffff", "Белый"]
   ];
   var ORNAMENTS = [["meander", "Греческий меандр", "Меандр"], ["chuvash", "Чувашский орнамент", "Чувашский"], ["wave", "Узор «Волна»", "Волна"], ["dots", "Узор «Точки»", "Точки"]];
 
