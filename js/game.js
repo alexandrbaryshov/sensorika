@@ -1611,7 +1611,7 @@
       '<div class="tools"><p class="label">' + (D ? "Кисть, текст, символы и орнамент" : "Кисть и орнамент") + '</p><div class="row">' +
       '<button class="chip" type="button" data-size="0.04" aria-pressed="true">Тонкая кисть</button>' +
       '<button class="chip" type="button" data-size="0.12" aria-pressed="false">Широкая кисть</button>' + textChip + orn + "</div></div>" + subRows +
-      '<div class="row row-actions"><button class="btn btn-undo" type="button" id="undo" title="Отменить последнее действие (Ctrl+Z)" disabled><span class="ico ico-undo" aria-hidden="true"></span>Назад</button>' +
+      '<div class="row row-actions"><button class="btn btn-undo" type="button" id="undo" title="Отменить последнее действие (Ctrl+Z)" disabled aria-label="Назад"><span class="ico ico-undo" aria-hidden="true"></span><span class="lbl">Назад</span></button>' +
       '<button class="btn btn-glaze" type="button" id="toGlaze">Глазуровать и в печь <span class="ico ico-arrow" aria-hidden="true"></span></button></div>', "paint",
       // на виду сразу под заголовком: без них непонятно, что круг можно остановить, а роспись — смыть
       (D && !blank.spin ? "" : '<button class="chip chip-tool" type="button" id="spinToggle" aria-pressed="false"><span class="ico ico-pause" aria-hidden="true"></span><span class="lbl">Остановить круг</span></button>') +

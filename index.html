@@ -23,6 +23,14 @@
         try { localStorage.setItem("sensorika:splash", "1"); } catch (e) {}
         document.cookie = "sk_splash=1; max-age=31536000; path=/; SameSite=Lax";
       }
+      // Якорь в адресе (#gift после «Сертификатов» в меню остаётся в истории браузера и в подсказках адресной строки)
+      // убираем до разбора страницы, и браузер к нему не прыгает: новый вход начинается с игры.
+      // Остаётся якорь, только если по ссылке пришли с другого сайта (пост во ВКонтакте); раздел откроет js/main.js
+      if (location.hash) {
+        var out = false;
+        try { out = !!document.referrer && new URL(document.referrer).host !== location.host; } catch (e) {}
+        if (!out) try { history.replaceState(history.state, "", location.pathname + location.search); } catch (e) {}
+      }
       if (demo) { d.classList.add("game-on"); return; }
       try {
         var g = JSON.parse(localStorage.getItem("sensorika:game") || "null");
@@ -300,8 +308,8 @@
 <section class="hero" id="hero" aria-labelledby="hero-title">
   <!-- Заголовок плавно уходит, как только человек взялся за глину (класс game-on), и больше не возвращается -->
   <div class="hero-intro"><div class="hero-intro-in">
-    <h1 class="hero-title" id="hero-title"><span class="arc" data-arc>Слепите вазу прямо сейчас</span></h1>
-    <p class="hero-sub">А затем воплотите её в&nbsp;жизнь в&nbsp;нашей мастерской.</p>
+    <h1 class="hero-title" id="hero-title"><span class="arc" data-arc>Создайте изделие прямо сейчас</span></h1>
+    <p class="hero-sub">А затем воплотите его в&nbsp;жизнь в&nbsp;нашей мастерской.</p>
   </div></div>
 
   <ol class="steps-rail" id="stepsRail" aria-label="Этапы игры">

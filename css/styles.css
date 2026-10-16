@@ -597,6 +597,9 @@ p { margin: 0 0 1em; text-wrap: pretty; }
   .game-controls.is-paint { gap: calc(14 * var(--u)); }
   .game-controls.is-paint .row { gap: calc(12 * var(--u)) calc(14 * var(--u)); }
   .game-controls.is-paint .chip { font-size: max(13px, calc(25 * var(--u))); min-height: calc(48 * var(--u)); padding: 0 calc(20 * var(--u)); }
+  /* «Назад» и «Глазуровать и в печь» — одной строкой в ширину панели, без прокрутки вбок: кнопки этапа чуть мельче остальных */
+  .game-controls.is-paint .row-actions .btn { font-size: max(13px, calc(26 * var(--u))); min-height: calc(62 * var(--u)); padding: 0 calc(24 * var(--u)); gap: .45em; }
+  .game-controls.is-paint .row-actions .btn-undo { padding: 0 calc(20 * var(--u)); }
   /* выбор занятия, заготовки и надпись */
   .game-controls.is-choose { gap: calc(18 * var(--u)); }
   .choice { gap: calc(24 * var(--u)); padding: calc(16 * var(--u)) calc(30 * var(--u)) calc(16 * var(--u)) calc(16 * var(--u)); border-radius: calc(32 * var(--u)); }
@@ -617,6 +620,16 @@ p { margin: 0 0 1em; text-wrap: pretty; }
   .link-skip { font-size: calc(30 * var(--u)); }
 
   .band-ornament { height: calc(140 * var(--u)); }
+}
+/* ПК с узким окном: текст панели упирается в минимальный кегль и становится крупнее макета, роспись перестаёт влезать.
+   Как на телефоне: без подписей групп и второй фразы подсказки, а в самом узком окне вторых фраз нет нигде и «Назад» — одна стрелка */
+@media (min-width: 1100px) and (max-width: 1365.98px) {
+  .game-controls.is-paint .label { display: none; }
+  .game-panel:has(.game-controls.is-paint) .hint-more { display: none; }
+}
+@media (min-width: 1100px) and (max-width: 1259.98px) {
+  .game-hint .hint-more { display: none; }
+  .game-controls.is-paint .btn-undo .lbl { display: none; }
 }
 
 /* ---------- планшет и телефон: та же ниша, но в потоке */

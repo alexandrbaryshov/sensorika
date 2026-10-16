@@ -92,8 +92,11 @@
   }
   function val(v) { return v == null || v === "" ? TBD : esc(v); }
 
-  // Ссылка записи: YClients, а пока её нет — ВКонтакте
-  var bookUrl = S.studio.yclients || S.studio.vk;
+  // Ссылка записи: YClients, а пока её нет — ВКонтакте. На телефоне мини-приложение YClients открывается в приложении
+  // ВКонтакте сразу на записи. На ПК оно открывается на сайте vk.ru: без входа во ВКонтакте просит войти, а администратору
+  // сообщества, судя по всему, открывает вход в кабинет YClients вместо записи. Поэтому на ПК, когда есть прямая ссылка на форму записи, ведём на неё.
+  var pc = window.matchMedia && matchMedia("(hover: hover) and (pointer: fine)").matches;
+  var bookUrl = (pc && S.studio.yclientsForm) || S.studio.yclients || S.studio.vk;
   document.querySelectorAll("[data-book]").forEach(function (a) {
     a.href = bookUrl;
     a.target = "_blank";
@@ -165,17 +168,39 @@
   if (mob) mob.addEventListener("click", function (e) { if (e.target.closest("a")) mob.open = false; });
 })();
 
-/* Обновили страницу — остаёмся там же, где были.
-   Сам браузер при перезагрузке то прыгает к якорю из адреса (после «Сертификатов» в меню в адресе остаётся #gift),
+/* Место на странице.
+   Разделы из меню открываются без якоря в адресе: иначе #gift после «Сертификатов» остаётся в истории браузера
+   и в подсказках адресной строки, и следующий вход на сайт открывается на сертификатах, а не на игре.
+   Новый вход всегда начинается с игры: старый якорь из адреса убирает скрипт в <head> до разбора страницы,
+   а оставляет, только если по ссылке пришли с другого сайта (пост во ВКонтакте), — тогда открываем этот раздел.
+   Обновили страницу — остаёмся там же, где были. Сам браузер при перезагрузке то прыгает к якорю из адреса,
    то возвращает устаревшее место (Chrome запоминает прокрутку с задержкой). Поэтому место запоминаем сами — только
-   в этой вкладке — и ставим его, когда страница собралась: здесь, после наполнения из data/site.js, и ещё раз после загрузки. */
+   в этой вкладке — и ставим его, когда страница собралась: здесь, после наполнения из data/site.js, и ещё раз после загрузки.
+   Вкладку открыли спустя полчаса и больше (телефон выгрузил её из памяти) — это уже новый вход. */
 (function () {
   "use strict";
   var KEY = "sensorika:scroll", path = location.pathname;
+
+  document.addEventListener("click", function (e) {
+    var a = e.target.closest && e.target.closest('a[href^="#"]');
+    if (!a || e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    var id = a.getAttribute("href").slice(1), el = id && document.getElementById(id);
+    if (!el) return;
+    e.preventDefault();
+    // плавность и отступ под шапку берутся из CSS (scroll-behavior, scroll-padding-top); шапка закреплена, к ней — просто наверх
+    if (id === "top") window.scrollTo(0, 0);
+    else el.scrollIntoView();
+    // с клавиатуры («Перейти к содержанию») фокус уходит в раздел, как при обычном переходе по якорю
+    if (e.detail === 0) {
+      if (!el.hasAttribute("tabindex")) el.setAttribute("tabindex", "-1");
+      el.focus({ preventScroll: true });
+    }
+  });
+
   if (!("scrollRestoration" in history)) return;
   history.scrollRestoration = "manual";
   function remember() {
-    try { sessionStorage.setItem(KEY, JSON.stringify({ y: Math.round(window.scrollY), path: path })); } catch (e) {}
+    try { sessionStorage.setItem(KEY, JSON.stringify({ y: Math.round(window.scrollY), path: path, t: Date.now() })); } catch (e) {}
   }
   var timer = 0;
   window.addEventListener("scroll", function () { if (!timer) timer = setTimeout(function () { timer = 0; remember(); }, 250); }, { passive: true });
@@ -186,15 +211,19 @@
   var reload = nav ? nav.type === "reload" || nav.type === "back_forward" : performance.navigation && performance.navigation.type > 0;
   var saved = null;
   try { saved = JSON.parse(sessionStorage.getItem(KEY) || "null"); } catch (e) {}
-  if (!reload || !saved || saved.path !== path) return;
-  // пока человек сам не тронул страницу, держим её на запомненном месте (после загрузки шрифтов и фото вёрстка чуть сдвигается)
+  // куда ставить страницу: запомненное место, раздел из ссылки с другого сайта или начало с игрой
+  var target = 0;
+  if (reload && saved && saved.path === path && Date.now() - (saved.t || 0) < 18e5) target = saved.y;
+  else if (location.hash) { try { target = document.getElementById(decodeURIComponent(location.hash.slice(1))) || 0; } catch (e) {} }
+  // пока человек сам не тронул страницу, держим её на месте (после загрузки шрифтов и фото вёрстка чуть сдвигается)
   var touched = false;
   ["wheel", "touchstart", "keydown", "mousedown"].forEach(function (t) { window.addEventListener(t, function () { touched = true; }, { once: true, passive: true }); });
   function put() {
     if (touched) return;
     var html = document.documentElement, sb = html.style.scrollBehavior;
     html.style.scrollBehavior = "auto"; // без плавной прокрутки из CSS: страница сразу на месте
-    window.scrollTo(0, saved.y);
+    if (typeof target === "number") window.scrollTo(0, target);
+    else target.scrollIntoView();
     html.style.scrollBehavior = sb;
   }
   put();

@@ -29,7 +29,7 @@ A warm, homely handmade workshop where anyone, from a child to a couple on a dat
 
 ## Operating Context
 
-- Booking goes through **VK** (https://vk.ru/sensorika21) and **YClients online booking** inside VK: https://vk.ru/app51715800_-200653634 (the `_-200653634` community suffix opens the studio's booking form directly; the bare app link opens the generic YClients home).
+- Booking goes through **VK** (https://vk.ru/sensorika21) and **YClients online booking** inside VK: https://vk.ru/app51715800_-200653634 (the `_-200653634` community suffix opens the studio's booking form directly; the bare app link opens the generic YClients home). On desktop the mini-app opens on vk.ru, where it needs a VK login and, for community admins, apparently opens the YClients cabinet login instead of the form, so `studio.yclientsForm` in `data/site.js` (direct `https://n….yclients.com/` form link) takes over on desktop once it is filled in.
 - VK services page: https://vk.ru/uslugi-200653634. It could not be read automatically because of a bot check.
 - Address: Cheboksary, Эгерский бульвар, 42 (from Yandex Maps, org id 146453008590). Open daily 09:00–22:00.
 - Studio photos supplied by the client are in `photos/`; web versions (≤1400 px) are in `assets/img/gallery/`.
