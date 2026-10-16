@@ -277,6 +277,8 @@
     <a href="#prices">Цены</a>
     <a href="#contacts">Контакты</a>
   </nav>
+  <!-- фоновая музыка: включается с первым касанием игры, кнопка её выключает и включает (js/music.js) -->
+  <button class="music-btn" id="musicBtn" type="button" aria-pressed="false" title="Включить музыку"><span class="ico ico-music-off" aria-hidden="true"></span><span class="visually-hidden">Фоновая музыка</span></button>
   <a class="btn btn-glaze btn-small" data-book href="#contacts">Записаться</a>
   <details class="nav-mobile">
     <summary aria-label="Меню"><span></span><span></span><span></span></summary>
@@ -538,6 +540,7 @@
 
 <script src="data/site.js"></script>
 <script src="js/main.js"></script>
+<script src="js/music.js"></script>
 <script>
   // Three.js (~650 КБ) грузим после картинок первого экрана, чтобы на телефоне арка и текст появились раньше
   (function () {

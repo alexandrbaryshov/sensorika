@@ -662,6 +662,7 @@
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
     framing(focus);
+    ringFit();
     if (!started) snapCamera();
   }
 
@@ -1070,6 +1071,7 @@
     setStep("shape");
     grab(true); hold(false);
     V0 = H * meanR();
+    ringFit();
     tip("Ведите пальцем по стенке вазы");
     panel("Гончарный круг",
       'Ведите пальцем по стенке: к центру — сужаете, наружу — расширяете.<span class="hint-more"> Глина тянется вверх, когда вы её сужаете.</span>',
@@ -1615,6 +1617,7 @@
       (D && !blank.spin ? "" : '<button class="chip chip-tool" type="button" id="spinToggle" aria-pressed="false"><span class="ico ico-pause" aria-hidden="true"></span><span class="lbl">Остановить круг</span></button>') +
       '<button class="chip chip-tool" type="button" id="wipe"><span class="ico ico-wipe" aria-hidden="true"></span>Смыть роспись</button>');
     clearUndo();
+    ringFit();
     var C = ui.controls;
     document.getElementById("undo").addEventListener("click", undoPaint);
     C.querySelectorAll("[data-color]").forEach(function (b) {
@@ -1626,6 +1629,7 @@
     });
     function toolBtns(active) {
       C.querySelectorAll("[data-size],[data-orn],[data-tool]").forEach(function (x) { x.setAttribute("aria-pressed", x === active ? "true" : "false"); });
+      ringFit();
       if (D) subMode();
     }
     C.querySelectorAll("[data-size]").forEach(function (b) {
@@ -2066,6 +2070,13 @@
   }
   /* ---------------------------------------------------------------- указатель */
   var pointer = { ndc: new V2(), down: false, onCanvas: false, fresh: false, x: 0, y: 0 };
+  // Кружок под курсором: на росписи кистью он размером со след кисти (тонкая втрое меньше широкой), в остальном — обычный.
+  // След кисти — paint.size в мировых единицах; на высоту сцены приходится 2·half единиц кадра.
+  function ringFit() {
+    var d = 30;
+    if (state === "paint" && paint.tool === "brush") d = Math.max(9, Math.round(paint.size * canvas.clientHeight / frameOf(focus).half));
+    ui.ring.style.setProperty("--d", d + "px");
+  }
   function setPointer(e) {
     var r = canvas.getBoundingClientRect();
     pointer.x = e.clientX - r.left; pointer.y = e.clientY - r.top;

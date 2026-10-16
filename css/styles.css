@@ -187,6 +187,24 @@ p { margin: 0 0 1em; text-wrap: pretty; }
 .nav a { padding: .45em .7em; border-radius: 999px; text-decoration: none; color: #e9cfc8; transition: background-color .2s, color .2s; }
 .nav a:hover { background: rgb(244 230 223 / .08); color: var(--blush); }
 
+/* фоновая музыка: круглая кнопка с нотой рядом с «Записаться»; играет — бирюзовая, выключена — нота перечёркнута */
+.music-btn {
+  flex: none; display: grid; place-items: center; width: 40px; height: 40px; padding: 0;
+  border: 1.5px solid rgb(244 230 223 / .35); border-radius: 50%;
+  background: transparent; color: #e9cfc8; cursor: pointer;
+  transition: background-color .2s, border-color .2s, color .2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.music-btn[hidden] { display: none; }
+.music-btn:hover { background: rgb(244 230 223 / .08); }
+.music-btn[aria-pressed="true"] { border-color: var(--turq); color: var(--turq); }
+.music-btn .ico { width: 1.25em; height: 1.25em; }
+.music-btn[aria-pressed="true"] .ico { animation: music-bob 2.6s ease-in-out infinite; }
+@keyframes music-bob { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-1.5px) rotate(-6deg); } }
+@media (prefers-reduced-motion: reduce) { .music-btn[aria-pressed="true"] .ico { animation: none; } }
+.ico-music { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 17.6V6.3l10.5-2.5v11.8' fill='none' stroke='%23000' stroke-width='2' stroke-linejoin='round'/%3E%3Ccircle cx='6.5' cy='17.6' r='2.6'/%3E%3Ccircle cx='17' cy='15.6' r='2.6'/%3E%3C/svg%3E"); }
+.ico-music-off { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cmask id='m'%3E%3Crect width='24' height='24' fill='%23fff'/%3E%3Cpath d='M3.5 3.5l17 17' stroke='%23000' stroke-width='5'/%3E%3C/mask%3E%3Cg mask='url(%23m)'%3E%3Cpath d='M9 17.6V6.3l10.5-2.5v11.8' fill='none' stroke='%23000' stroke-width='2' stroke-linejoin='round'/%3E%3Ccircle cx='6.5' cy='17.6' r='2.6'/%3E%3Ccircle cx='17' cy='15.6' r='2.6'/%3E%3C/g%3E%3Cpath d='M3.5 3.5l17 17' stroke='%23000' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E"); }
+
 .nav-mobile { display: none; position: relative; }
 .nav-mobile summary { list-style: none; width: 44px; height: 44px; display: grid; place-content: center; gap: 5px; cursor: pointer; border-radius: 12px; }
 .nav-mobile summary::-webkit-details-marker { display: none; }
@@ -308,11 +326,13 @@ p { margin: 0 0 1em; text-wrap: pretty; }
   74% { transform: translate(-50%, -94%) scale(.98, 1.04) rotate(1.6deg); }
 }
 @keyframes flame-glow { 0%, 100% { opacity: .9; } 35% { opacity: 1; } 60% { opacity: .78; } }
+/* --d — диаметр кружка: у кисти он равен её следу на изделии (ставит js/game.js, ringFit) */
 .cursor-ring {
-  position: absolute; left: 0; top: 0; width: 30px; height: 30px; margin: -15px 0 0 -15px;
+  --d: 30px;
+  position: absolute; left: 0; top: 0; width: var(--d); height: var(--d); margin: calc(var(--d) / -2) 0 0 calc(var(--d) / -2);
   border: 2px solid var(--turq); border-radius: 50%;
   pointer-events: none; opacity: 0;
-  transition: opacity .2s;
+  transition: opacity .2s, width .15s, height .15s, margin .15s;
   box-shadow: 0 0 0 4px rgb(63 193 201 / .18);
 }
 .cursor-ring.is-on { opacity: 1; }
@@ -521,6 +541,7 @@ p { margin: 0 0 1em; text-wrap: pretty; }
   .nav { position: absolute; left: calc(905 * var(--u)); top: calc(46 * var(--u)); width: calc(944 * var(--u)); justify-content: space-between; gap: 0; }
   .nav a { font-size: calc(34 * var(--u)); padding: 0 .2em; line-height: calc(57 * var(--u)); }
   .masthead > .btn-small { position: absolute; left: calc(2325 * var(--u)); top: calc(31 * var(--u)); width: calc(292 * var(--u)); height: calc(86 * var(--u)); min-height: 0; padding: 0; font-size: calc(34 * var(--u)); font-weight: 400; box-shadow: none; }
+  .masthead > .music-btn { position: absolute; left: calc(2217 * var(--u)); top: calc(31 * var(--u)); width: calc(86 * var(--u)); height: calc(86 * var(--u)); border-width: 2px; font-size: calc(34 * var(--u)); }
 
   /* --dy: свободное место по высоте окна делится сверху и снизу, полоса орнамента ложится ровно на нижний край экрана */
   .hero { --dy: max(0px, (100svh - 1427 * var(--u)) / 2); height: calc(1287 * var(--u) + 2 * var(--dy)); }
@@ -935,7 +956,9 @@ section { position: relative; }
 }
 
 @media (max-width: 600px) {
+  .masthead { gap: 8px; }
   .masthead .btn-small { padding: .5em .9em; font-size: .9rem; }
+  .music-btn { width: 38px; height: 38px; }
   .brand-tag { display: none; }
   .dir-item { grid-template-columns: 84px 1fr; padding: 24px 0 26px; } .dir-tondo { width: 84px; height: 84px; grid-row: span 2; } .dir-lead, .dir-meta { grid-column: 1 / -1; }
   .facts { grid-template-columns: 1fr 1fr; }
@@ -946,10 +969,15 @@ section { position: relative; }
   .certificate-inner { inset: 40px 10px; margin: 0 8px; }
   .cert-line { font-size: 1rem; }
 }
-
+/* узкие телефоны: в шапке рядом с «Записаться» ещё кнопка музыки — название мельче и ближе к знаку, а на самых узких только знак */
 @media (max-width: 380px) {
-  .brand-name { font-size: 1.4rem; }
+  .brand { gap: 6px; }
+  .brand-name { font-size: 1.3rem; }
   .brand-mark { width: 38px; height: 38px; }
+  .masthead .btn-small { padding: .5em .75em; }
+}
+@media (max-width: 350px) {
+  .masthead .brand-text { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
