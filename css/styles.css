@@ -260,6 +260,9 @@ p { margin: 0 0 1em; text-wrap: pretty; }
 .stage.is-grab canvas { cursor: none; touch-action: none; }
 /* Ком и печь: глину зажимают пальцем, поэтому страница под ним не должна уезжать */
 .stage.is-hold canvas { touch-action: none; }
+/* «Готово»: изделие поворачивают, потянув в сторону */
+.stage.is-turn canvas { cursor: grab; }
+.stage.is-turn.is-turning canvas { cursor: grabbing; }
 /* Игра: долгое нажатие не выделяет текст и картинку, без синей подсветки касания и меню */
 .niche, .steps-rail, .game-panel { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .hero { -webkit-tap-highlight-color: transparent; }
@@ -435,6 +438,11 @@ p { margin: 0 0 1em; text-wrap: pretty; }
 .text-in:focus { outline: none; border-color: var(--turq); box-shadow: 0 0 0 4px rgb(63 193 201 / .18); }
 .game-controls .chip-sq { flex: none; width: 40px; min-width: 40px; padding: 0; }
 .game-controls .chip-sq > .ico { margin: 0; }
+/* «Готово»: поворот изделия перед снимком — подсказка и две кнопки с дугой-стрелкой перед «Сохранить фото» */
+.ico-turn-l, .ico-turn-r { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4.5 17a7.5 7.5 0 0 1 14.6-2.4' stroke='%23000' stroke-width='2.2' fill='none' stroke-linecap='round'/%3E%3Cpath d='M15.6 13.9l4.6 2.5 1.4-5.1' stroke='%23000' stroke-width='2.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+.ico-turn-l { transform: scaleX(-1); }
+.game-controls .chip-turn > .ico { width: 1.35em; height: 1.35em; }
+.turn-hint { width: 100%; margin: 0 0 -2px; font-size: .84rem; line-height: 1.3; color: var(--on-night-soft); text-wrap: pretty; }
 .font-aa { font-size: 1.15em; line-height: 1; }
 
 .swatch { flex: none; width: 34px; height: 34px; padding: 0; border-radius: 50%; border: 2px solid rgb(244 230 223 / .25); background: var(--c); cursor: pointer; box-shadow: inset 0 -3px 0 rgb(0 0 0 / .18); transition: transform .2s var(--ease-out); }
@@ -576,6 +584,8 @@ p { margin: 0 0 1em; text-wrap: pretty; }
   .choice-sub { font-size: max(12px, calc(24 * var(--u))); }
   .text-in { height: max(34px, calc(56 * var(--u))); font-size: max(16px, calc(27 * var(--u))); }
   .game-controls.is-paint .chip-sq { width: max(34px, calc(56 * var(--u))); min-width: 0; min-height: max(34px, calc(56 * var(--u))); padding: 0; }
+  .turn-hint { font-size: max(12px, calc(24 * var(--u))); }
+  .game-controls .chip-turn { width: max(38px, calc(75 * var(--u))); min-width: 0; min-height: max(38px, calc(75 * var(--u))); }
 
   .hero-actions { left: calc(1115 * var(--u)); top: calc(2 * var(--dy) + 1113 * var(--u)); width: calc(523 * var(--u)); gap: calc(22 * var(--u)); }
   .hero-cta { width: 100%; height: calc(95 * var(--u)); min-height: 0; padding: 0; font-size: calc(34 * var(--u)); font-weight: 400; box-shadow: none; }
@@ -671,6 +681,7 @@ p { margin: 0 0 1em; text-wrap: pretty; }
   }
   .game-controls .row-sym::-webkit-scrollbar { display: none; }
   .game-controls.is-done .btn-save, .game-controls.is-done .btn-share { min-height: 40px; padding: .5em 1.05em; }
+  .game-controls .chip-turn { width: 40px; min-width: 40px; min-height: 40px; }
   /* печь: шкала и кнопка «Жар» рядом */
   .game-controls.is-fire { flex-wrap: nowrap; gap: 12px; }
   .game-controls.is-fire .gauge { flex: 1 1 auto; min-width: 0; margin: 0; }

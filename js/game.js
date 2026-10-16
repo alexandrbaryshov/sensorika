@@ -457,6 +457,7 @@
       name: "Неваляшка", gen: "неваляшки", acc: "неваляшку", dat: "неваляшке", card: "МОЯ НЕВАЛЯШКА", file: "moya-nevalyashka-sensorika.jpg",
       done: "Неваляшка обожжена и сияет глазурью. Настоящую распишите в «Сенсорике»!<span class=\"hint-more\"> Пусть стоит на полке и улыбается.</span>",
       kind: "lathe", spin: true, textY: .55, frame: { y: 1.06, half: 1.46, elev: .2 },
+      face: true, // на «Готово» поворачивается к зрителю лицом
       parts: [
         // туловище срезано снизу ровной площадкой, чтобы стоять на турнетке
         { w: .3, c: [[0, 0], [.08, 0], [ROLY.br * Math.sin(ROLY.t0), 0]] },
@@ -851,6 +852,7 @@
     holding = false; holdBtn = null; pointer.down = false; paint.last = null;
     finger.visible = false; txt.on = false;
     coilMat.emissiveIntensity = 0; kilnLight.intensity = 0;
+    turnable(false);
   }
   // «Слепить ещё»: новый ком на круг
   function restart() {
@@ -1134,8 +1136,8 @@
     save();
     tween(0.6, function (k) { piece.position.y = easeInOut(k) * 5.5; }, function () {
       focus = "kiln"; framing("kiln");
+      // в печь и обратно изделие едет, не поворачиваясь: на «Готово» к зрителю та же сторона, что была при росписи
       piece.position.set(KX, 5.5, 0);
-      piece.rotation.y = clay.rotation.y;
       tween(1.0, function () {}, function () {
         tween(0.8, function (k) { piece.position.y = 5.5 * (1 - easeOut(k)); }, beginFiring);
       });
@@ -1877,25 +1879,44 @@
   }
 
   /* ---------- 5. готово */
+  // Изделие стоит на круге неподвижно: ракурс для фото выбирают стрелками в панели или тянут изделие в сторону.
+  // turn.goal — угол, к которому изделие плавно доворачивается; turn.drag — начало перетаскивания.
+  var turn = { goal: null, drag: null }, TURN_STEP = Math.PI / 4, TURN_K = 0.012;
+  var TOUCH = window.matchMedia && matchMedia("(pointer: coarse)").matches;
+  function canTurn() { return state === "done" && !(blank && !blank.spin); }
+  function turnable(on) { stageEl.classList.toggle("is-turn", !!on); if (!on) { turn.goal = null; turn.drag = null; } }
+  function turnBy(a) { turn.goal = (turn.goal === null ? clay.rotation.y : turn.goal) + a; }
   function startDone() {
     var D = mode === "decor";
     state = "done"; clayMat.emissiveIntensity = 0;
     photo = null;
     focus = "done"; framing("done");
-    setStep("done"); spinGoal = D && !blank.spin ? 0 : 0.35;
+    setStep("done"); spinGoal = 0; spin = 0;
+    turnable(canTurn());
+    // неваляшка встаёт к зрителю лицом (лицо смотрит туда при повороте, кратном полному обороту)
+    if (D && blank.face) turn.goal = Math.round(clay.rotation.y / TAU) * TAU;
     blankStage("done");
     // кнопка записи появляется только сейчас: на ПК — под аркой, на телефоне — в панели (.game-cta), чтобы не уходить за край экрана
     heroEl.classList.add("cta-on");
     var cta = heroEl.querySelector(".hero-cta");
     // «Сохранить фото» — заметная кнопка с мягкой пульсацией, чтобы её не пропустили; «Поделиться» — там, где браузер умеет отправлять файлы.
-    // Рядом — второе занятие: после круга можно расписать заготовку, после росписи — слепить на круге.
+    // Над ними — поворот изделия с подсказкой. Рядом — второе занятие: после круга можно расписать заготовку, после росписи — слепить на круге.
     panel("Готово!",
       D ? blank.done : 'Ваза обожжена и сияет глазурью. Настоящую слепите в «Сенсорике»!<span class="hint-more"> Она будет тяжёлой, тёплой и только вашей.</span>',
-      '<div class="row"><button class="btn btn-save" type="button" id="savePic"><span class="ico ico-camera" aria-hidden="true"></span>Сохранить фото</button>' +
+      // подсказка в одну строку и стрелки прямо перед «Сохранить фото»: на телефоне панель почти не растёт
+      (canTurn() ? '<p class="turn-hint">Поверните для фото стрелками или ' + (TOUCH ? "пальцем" : "мышкой") + ":</p>" : "") +
+      '<div class="row">' +
+      (canTurn() ? '<button class="chip chip-sq chip-turn" type="button" id="turnL" title="Повернуть влево" aria-label="Повернуть изделие влево"><span class="ico ico-turn-l" aria-hidden="true"></span></button>' +
+        '<button class="chip chip-sq chip-turn" type="button" id="turnR" title="Повернуть вправо" aria-label="Повернуть изделие вправо"><span class="ico ico-turn-r" aria-hidden="true"></span></button>' : "") +
+      '<button class="btn btn-save" type="button" id="savePic"><span class="ico ico-camera" aria-hidden="true"></span>Сохранить фото</button>' +
       (CAN_SHARE ? '<button class="btn btn-share" type="button" id="sharePic"><span class="ico ico-share" aria-hidden="true"></span>Поделиться</button>' : "") +
       '<button class="chip" type="button" id="again">' + (D ? "Расписать ещё" : "Слепить ещё") + "</button>" +
       '<button class="chip" type="button" id="other">' + (D ? "Слепить на круге" : "Расписать изделие") + "</button></div>" +
       (cta ? '<a class="btn btn-glaze game-cta" href="' + cta.href + '" target="_blank" rel="noopener">Записаться в мастерскую</a>' : ""), "done");
+    if (canTurn()) {
+      document.getElementById("turnL").addEventListener("click", function () { turnBy(-TURN_STEP); });
+      document.getElementById("turnR").addEventListener("click", function () { turnBy(TURN_STEP); });
+    }
     document.getElementById("savePic").addEventListener("click", savePicture);
     if (CAN_SHARE) document.getElementById("sharePic").addEventListener("click", sharePicture);
     document.getElementById("again").addEventListener("click", D ? againDecor : restart);
@@ -1974,12 +1995,12 @@
     if (st.phone) line(st.phone, "600 #px 'Golos Text', sans-serif", 34, "#f6decf", fy + 146);
     return out;
   }
-  // Открытка рисуется при первом нажатии и дальше берётся готовой (сбрасывает её startDone):
+  // Открытка рисуется при первом нажатии и дальше берётся готовой, пока изделие не повернули (сбрасывает её и startDone):
   // повторное «Поделиться» открывается сразу, пока браузер ещё считает его ответом на нажатие
   var photo = null;
   function postcard() {
-    if (photo) return photo;
-    var p = photo = { card: renderPostcard(), file: null, ready: [] };
+    if (photo && photo.ry === clay.rotation.y) return photo;
+    var p = photo = { ry: clay.rotation.y, card: renderPostcard(), file: null, ready: [] };
     p.card.toBlob(function (blob) {
       if (!blob) { if (photo === p) photo = null; return; }
       p.file = new File([blob], photoName(), { type: "image/jpeg" });
@@ -2059,7 +2080,13 @@
     // набрали надпись и взялись двигать её по изделию: клавиатура телефона прячется и не закрывает арку
     var ae = document.activeElement;
     if (ae && ae.tagName === "INPUT" && ui.controls.contains(ae)) ae.blur();
-    if (interactive() || state === "lump" || state === "fire") {
+    // «Готово»: изделие поворачивают, потянув в сторону (по вертикали страница прокручивается как обычно)
+    if (canTurn()) {
+      turn.drag = { x: e.clientX, r: clay.rotation.y }; turn.goal = null;
+      stageEl.classList.add("is-turning");
+      canvas.setPointerCapture(e.pointerId);
+    }
+    else if (interactive() || state === "lump" || state === "fire") {
       pointer.down = true; pointer.fresh = true;
       if (interactive()) canvas.setPointerCapture(e.pointerId);
     }
@@ -2067,9 +2094,11 @@
   });
   canvas.addEventListener("pointermove", function (e) {
     setPointer(e); pointer.onCanvas = true;
+    if (turn.drag) clay.rotation.y = turn.drag.r + (e.clientX - turn.drag.x) * TURN_K;
     ui.ring.classList.toggle("is-on", interactive() && (e.pointerType === "mouse" || pointer.down));
   });
   function release() {
+    if (turn.drag) { turn.drag = null; stageEl.classList.remove("is-turning"); }
     if (!pointer.down) return;
     pointer.down = false; paint.last = null; paint.snapped = false;
     if (!matchMedia("(hover: hover)").matches) ui.ring.classList.remove("is-on");
@@ -2112,6 +2141,12 @@
     wheelHead.rotation.y += dA;
     // картина стоит на подставке и не вращается
     if (state !== "transfer" && state !== "cooling" && state !== "fire" && state !== "cracked" && !(blank && !blank.spin)) clay.rotation.y += dA;
+    // «Готово»: изделие плавно доворачивается к выбранному ракурсу
+    if (turn.goal !== null) {
+      var dr = turn.goal - clay.rotation.y;
+      if (REDUCED || Math.abs(dr) < 1e-3) { clay.rotation.y = turn.goal; turn.goal = null; }
+      else clay.rotation.y += dr * Math.min(1, dt * 7);
+    }
 
     if (dirty) rebuild();
 
