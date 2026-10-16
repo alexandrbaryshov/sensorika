@@ -1,6 +1,6 @@
 /* ==========================================================================
    Сенсорика: «Слепите вазу» — 3D-демо полного цикла
-   ком → центровка → формовка на круге → обжиг → роспись → глазурь → готово
+   ком → центровка → формовка на круге → роспись → глазурь и обжиг → готово
    Three.js r159 (UMD, assets/vendor/three.min.js), работает и с file://
    ========================================================================== */
 (function () {
@@ -257,7 +257,8 @@
   var H = 1.15, Hgoal = 1.15, V0 = 1;
   var openK = 0, wobbleK = 1;
 
-  var COLORS = { wet: new THREE.Color(0xd27a52), dry: new THREE.Color(0xdcab8c), bisque: new THREE.Color(0xffffff) };
+  // leather: оттенок, при котором глина на «кожице» росписи (skinBisque) выглядит так же, как сырая на skinNeutral, — переход без скачка
+  var COLORS = { wet: new THREE.Color(0xd27a52), leather: new THREE.Color(0xb7997e), bisque: new THREE.Color(0xffffff) };
 
   var clayMat = new THREE.MeshPhysicalMaterial({
     color: COLORS.wet.clone(), map: skinTex, bumpMap: streakTex, bumpScale: 2.3,
@@ -365,7 +366,7 @@
   var tweens = [];
   function tween(dur, fn, done) { tweens.push({ t: 0, d: REDUCED ? 0.001 : dur, fn: fn, done: done }); }
 
-  var STEPS = ["lump", "shape", "fire", "paint", "done"];
+  var STEPS = ["lump", "shape", "paint", "fire", "done"];
   function setStep(name) {
     var idx = STEPS.indexOf(name);
     ui.frieze.querySelectorAll("li").forEach(function (li, i) {
@@ -390,7 +391,7 @@
   // Прогресс лежит в localStorage: страница перезагрузилась (слабый интернет, телефон выгрузил вкладку) — ваза на месте.
   var SAVE_KEY = "sensorika:game", SAVE_TTL = 7 * 864e5;
   // этап для сохранения: промежуточные анимации относим к этапу, который начнётся после перезагрузки
-  var SAVE_STEP = { intro: "lump", drop: "lump", lump: "lump", opening: "lump", shape: "shape", transfer: "fire", fire: "fire", cracked: "fire", cooling: "paint", paint: "paint", glazing: "done", done: "done" };
+  var SAVE_STEP = { intro: "lump", drop: "lump", lump: "lump", opening: "lump", shape: "shape", drying: "paint", paint: "paint", transfer: "fire", fire: "fire", cracked: "fire", cooling: "done", done: "done" };
   var saveTimer = 0;
   function loadSave() {
     if (DEMO) return null;
@@ -410,8 +411,8 @@
       s.H = +H.toFixed(4);
       s.R = Array.prototype.map.call(R, function (r) { return +r.toFixed(4); });
     }
-    // роспись — картинкой: пока печь остывает, на изделии ещё нет росписи, сохраняем чистый черепок
-    if ((step === "paint" && state !== "cooling") || step === "done") {
+    // роспись — картинкой: пока глина подсыхает, на изделии ещё нет росписи
+    if ((step === "paint" && state !== "drying") || step === "fire" || step === "done") {
       try { s.skin = skinCv.toDataURL("image/jpeg", 0.86); } catch (e) {}
     }
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); }
@@ -465,26 +466,25 @@
   }
   function restore(s) {
     placeShape(s.R, s.H);
-    if (s.step === "shape") { matWet(); skinNeutral(); startShape(); }
-    else if (s.step === "fire") {
-      matWet(); skinNeutral();
+    if (s.step === "shape") { matWet(); skinNeutral(); startShape(); return; }
+    skinBisque();
+    if (s.skin) drawSkin(s.skin);
+    if (s.step === "fire") {
+      matBisque();
       setStep("fire"); spinGoal = 0; grab(false); tip("");
       focus = "kiln"; framing("kiln"); snapCamera();
       piece.position.set(KX, 0, 0);
       beginFiring();
-    } else {
-      skinBisque();
-      if (s.skin) drawSkin(s.skin);
-      if (s.step === "done") { matGlazed(); startDone(); }
-      else { matBisque(); startPaint(); }
     }
+    else if (s.step === "done") { matGlazed(); startDone(); }
+    else { matBisque(); startPaint(); }
   }
 
   // «Начать сначала» на любом этапе. Если работа уже есть, кнопка просит подтвердить вторым нажатием.
   function restart() {
     tweens.length = 0; morph = null; fire = null;
     holding = false; holdBtn = null; pointer.down = false; paint.last = null;
-    finger.visible = false; finishFiring.swapped = false;
+    finger.visible = false;
     coilMat.emissiveIntensity = 0; kilnLight.intensity = 0;
     var fromKiln = focus === "kiln";
     startLump();
@@ -601,7 +601,7 @@
       '<button class="chip" type="button" data-preset="mug">Кружка</button>' +
       '<button class="chip" type="button" data-preset="vase">Ваза</button>' +
       '<button class="chip" type="button" data-preset="amphora">Амфора</button></div>' +
-      '<button class="btn btn-glaze" type="button" id="toKiln">Снять с круга и в печь <span class="ico ico-arrow" aria-hidden="true"></span></button>', "shape");
+      '<button class="btn btn-glaze" type="button" id="toPaint">Расписать <span class="ico ico-arrow" aria-hidden="true"></span></button>', "shape");
     ui.controls.querySelectorAll("[data-preset]").forEach(function (c) {
       c.addEventListener("click", function () {
         ui.controls.querySelectorAll("[data-preset]").forEach(function (x) { x.setAttribute("aria-pressed", x === c ? "true" : "false"); });
@@ -614,7 +614,7 @@
         }, function () { morph = null; V0 = H * meanR(); saveSoon(); });
       });
     });
-    document.getElementById("toKiln").addEventListener("click", startFire);
+    document.getElementById("toPaint").addEventListener("click", startDrying);
     save();
   }
 
@@ -660,8 +660,9 @@
     dirty = true;
   }
 
-  /* ---------- 3. обжиг */
+  /* ---------- 4. глазурь и обжиг */
   var fire = null;
+  var fireSkin = null; // роспись до трещины: «Попробовать снова» возвращает её
   var PHASES = [
     { name: "Сушка", lo: 100, hi: 260, need: 1.8 },
     { name: "Подъём", lo: 450, hi: 650, need: 2.0 },
@@ -671,7 +672,7 @@
   function startFire() {
     state = "transfer"; grab(false); finger.visible = false; tip("");
     setStep("fire");
-    panel("Печь", "Переносим изделие в печь…", "");
+    panel("Глазурь и обжиг", "Покрываем вазу прозрачной глазурью и переносим в печь…", "");
     spinGoal = 0;
     save();
     tween(0.6, function (k) { piece.position.y = easeInOut(k) * 5.5; }, function () {
@@ -687,8 +688,8 @@
     state = "fire"; hold(true);
     fire = { T: 20, phase: 0, prog: 0, stress: 0 };
     gaugeCache = {};
-    clayMat.color.copy(COLORS.wet);
-    panel("Печь",
+    matBisque();
+    panel("Глазурь и обжиг",
       "Держите <strong>«Жар»</strong> и не выпускайте стрелку из светлой зоны, пока этап не закончится. Перегреете — глина треснет.",
       '<div class="gauge"><div class="gauge-track"><div class="gauge-band" id="gBand"></div><div class="gauge-needle" id="gNeedle"></div></div>' +
       '<div class="gauge-meta"><span id="gPhase"></span><b id="gTemp">20 °C</b></div><div class="stress" title="Напряжение в глине"><i id="gStress"></i></div></div>' +
@@ -726,10 +727,6 @@
     var over = f.T - (ph.hi + 70);
     if (over > 0) f.stress += dt * (0.45 + over / 220);
     else f.stress = Math.max(0, f.stress - dt * 0.12);
-    // цвет: сырая → сухая → черепок
-    var dry = f.phase > 0 ? 1 : clamp(f.prog / ph.need, 0, 1);
-    clayMat.color.copy(COLORS.wet).lerp(COLORS.dry, dry);
-    clayMat.roughness = lerp(.6, .92, dry); clayMat.clearcoat = lerp(.1, 0, dry);
     var glow = smooth(f.T, 480, 1050);
     clayMat.emissiveIntensity = glow * 1.4;
     coilMat.emissiveIntensity = smooth(f.T, 60, 950) * 5;
@@ -743,6 +740,8 @@
   }
   function crack() {
     state = "cracked"; holding = false;
+    if (!fireSkin) fireSkin = makeCanvas(SKIN, SKIN);
+    copySkin(fireSkin, skinCv);
     skin.save();
     skin.strokeStyle = "#1c0f0c"; skin.lineCap = "round"; skin.lineJoin = "round";
     for (var c = 0; c < 3; c++) {
@@ -753,38 +752,55 @@
       skin.stroke();
     }
     skin.restore(); skinTex.needsUpdate = true;
-    panel("Печь",
+    panel("Глазурь и обжиг",
       "<strong>Трещина.</strong> Жар поднялся слишком резко. В настоящей печи за обжигом следит мастер, а здесь можно попробовать ещё раз.",
       '<button class="btn btn-glaze" type="button" id="retryFire">Попробовать снова</button>');
-    document.getElementById("retryFire").addEventListener("click", function () { skinNeutral(); beginFiring(); });
+    document.getElementById("retryFire").addEventListener("click", function () { copySkin(skinCv, fireSkin); skinTex.needsUpdate = true; beginFiring(); });
   }
   function finishFiring() {
     state = "cooling"; holding = false; hold(false);
     save();
-    panel("Печь", "Обжиг удался. Печь остывает, глина стала <strong>черепком</strong>: твёрдым, звонким, тёплого персикового цвета.", "");
-    var T0 = fire.T, c0 = clayMat.color.clone();
+    panel("Глазурь и обжиг", "Обжиг удался. Печь остывает, глина стала твёрдой и звонкой, а <strong>глазурь расплавилась и стала стеклом</strong>.", "");
+    var T0 = fire.T, r0 = clayMat.roughness;
     tween(1.8, function (k) {
       var T = lerp(T0, 60, easeOut(k));
       clayMat.emissiveIntensity = smooth(T, 480, 1050) * 1.4;
       coilMat.emissiveIntensity = smooth(T, 60, 950) * 5;
       kilnLight.intensity = smooth(T, 60, 1000) * 26;
-      clayMat.color.copy(c0).lerp(new THREE.Color(0xffffff), easeInOut(k));
-      if (k > .35 && clayMat.map === skinTex && !finishFiring.swapped) { finishFiring.swapped = true; skinBisque(); }
+      var g = easeInOut(k);
+      clayMat.roughness = lerp(r0, .3, g);
+      clayMat.clearcoat = g; clayMat.clearcoatRoughness = .08;
+      clayMat.bumpScale = lerp(.5, .15, g);
     }, function () {
-      finishFiring.swapped = false;
-      matBisque();
-      // обратно на круг — расписывать
+      matGlazed();
+      // обратно на круг — показать готовую вазу
       tween(0.7, function (k) { piece.position.y = easeInOut(k) * 5.5; }, function () {
         focus = "wheel"; framing("wheel");
         piece.position.set(0, 5.5, 0);
         tween(1.0, function () {}, function () {
-          tween(0.8, function (k) { piece.position.y = 5.5 * (1 - easeOut(k)); }, startPaint);
+          tween(0.8, function (k) { piece.position.y = 5.5 * (1 - easeOut(k)); }, startDone);
         });
       });
     });
   }
 
-  /* ---------- 4. роспись */
+  /* ---------- 3. роспись */
+  // Глина подсыхает прямо на круге: по кожетвёрдой глине расписывают ангобами
+  function startDrying() {
+    state = "drying"; grab(false); finger.visible = false; tip("");
+    setStep("paint");
+    spinGoal = 1.0;
+    panel("Роспись", "Глина немного подсыхает: по <strong>кожетвёрдой</strong> глине удобно расписывать ангобами.", "");
+    // кожица росписи сразу, а цвет материала подобран так, чтобы ваза не мигнула (см. COLORS.leather)
+    skinBisque();
+    clayMat.color.copy(COLORS.leather);
+    tween(1.4, function (k) {
+      var e = easeInOut(k);
+      clayMat.color.copy(COLORS.leather).lerp(COLORS.bisque, e);
+      clayMat.roughness = lerp(.6, .86, e); clayMat.clearcoat = lerp(.1, 0, e);
+      clayMat.bumpScale = lerp(2.3, .5, e);
+    }, function () { matBisque(); startPaint(); save(); });
+  }
   var paint = { color: "#2b1c30", size: 0.05, tool: "brush", last: null, snapped: false };
   var PALETTE = [
     ["#2b1c30", "Аубергин (чёрный ангоб)"], ["#9e4b35", "Терракота"], ["#c8352b", "Красный"], ["#d6a23e", "Охра"],
@@ -840,7 +856,7 @@
       '<button class="chip" type="button" data-size="0.05" aria-pressed="true">Тонкая кисть</button>' +
       '<button class="chip" type="button" data-size="0.12" aria-pressed="false">Широкая кисть</button>' + orn + "</div></div>" +
       '<div class="row row-actions"><button class="btn btn-undo" type="button" id="undo" title="Отменить последнее действие (Ctrl+Z)" disabled><span class="ico ico-undo" aria-hidden="true"></span>Назад</button>' +
-      '<button class="btn btn-glaze" type="button" id="toGlaze">Глазуровать <span class="ico ico-arrow" aria-hidden="true"></span></button></div>', "paint",
+      '<button class="btn btn-glaze" type="button" id="toGlaze">Глазуровать и в печь <span class="ico ico-arrow" aria-hidden="true"></span></button></div>', "paint",
       // на виду сразу под заголовком: без них непонятно, что круг можно остановить, а роспись — смыть
       '<button class="chip chip-tool" type="button" id="spinToggle" aria-pressed="false"><span class="ico ico-pause" aria-hidden="true"></span><span class="lbl">Остановить круг</span></button>' +
       '<button class="chip chip-tool" type="button" id="wipe"><span class="ico ico-wipe" aria-hidden="true"></span>Смыть роспись</button>');
@@ -879,7 +895,7 @@
       spinGoal = stopped ? 0 : 1.0;
     });
     document.getElementById("wipe").addEventListener("click", function () { snapSkin(); skinBisque(); saveSoon(); });
-    document.getElementById("toGlaze").addEventListener("click", startGlaze);
+    document.getElementById("toGlaze").addEventListener("click", startFire);
   }
 
   function outerV(i) { return (2 + i) / (P - 1); }
@@ -986,21 +1002,7 @@
     paint.changed = true;
   }
 
-  /* ---------- 5. глазурь и готово */
-  function startGlaze() {
-    state = "glazing"; grab(false); spinGoal = 0.6; tip("");
-    save();
-    panel("Роспись", "Покрываем прозрачной глазурью и обжигаем второй раз. В печи <strong>глазурь плавится и становится стеклом</strong>.", "");
-    var r0 = clayMat.roughness;
-    tween(2.2, function (k) {
-      var g = Math.sin(k * Math.PI);
-      clayMat.emissiveIntensity = g * 1.1;
-      clayMat.roughness = lerp(r0, .3, smooth(k, .4, 1));
-      clayMat.clearcoat = smooth(k, .4, 1);
-      clayMat.clearcoatRoughness = .08;
-      clayMat.bumpScale = lerp(.5, .15, k);
-    }, startDone);
-  }
+  /* ---------- 5. готово */
   function startDone() {
     state = "done"; clayMat.emissiveIntensity = 0;
     photo = null;

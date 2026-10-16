@@ -265,7 +265,7 @@ Tactile and glazed, like a dipped pot.
 - **Masthead:** fixed, night (#221726), with the logo lockup at left and the Amatic SC wordmark. Golos links are pill-highlighted on hover, and a small glaze CTA sits at right. Below 1100px it becomes a hamburger `details` menu that opens a night-2 sheet.
 
 ### Steps Rail (signature)
-Five painted clay medallions (Ком, Круг, Печь, Роспись, Готово) joined by a thin peach line, each with a Bad Script name. The active medallion scales 1.08, warms through a sepia/saturate filter and gains the ring. Completed medallions dim. The same plates reappear in the lavender process frieze.
+Five painted clay medallions (Ком, Круг, Роспись, Печь, Готово) joined by a thin peach line, each with a Bad Script name. The active medallion scales 1.08, warms through a sepia/saturate filter and gains the ring. Completed medallions dim. The same plates reappear in the lavender process frieze.
 
 ### Niche Stage (signature)
 The peach arch plate frames the Three.js wheel over a masked stage wall. Floating candle plates flank it, with CSS flames (sway, 3.4s) and screen-blended glows. The stage tip is a translucent night pill in Bad Script that bobs over the clay and hides between actions. At «Готово» the visitor can export a 1080×1350 postcard: the vase on a night radial ground, a Ledger title, the peach diamond belt and a Bad Script signature.
