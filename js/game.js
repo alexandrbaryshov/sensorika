@@ -1409,9 +1409,9 @@
     txtAnchor();
     txtDraw(true);
   }
-  // Точка посередине видимой стороны изделия: туда встаёт новая надпись и символ, поставленный с клавиатуры
+  // Точка посередине видимой стороны изделия: туда встаёт новая надпись и символ, поставленный с клавиатуры (на вазе с круга — посередине высоты)
   function viewUV() {
-    tmp.set(piece.position.x, piece.position.y + blank.textY, piece.position.z).project(camera);
+    tmp.set(piece.position.x, piece.position.y + (blank ? blank.textY : H * .55), piece.position.z).project(camera);
     raycaster.setFromCamera(new V2(tmp.x, tmp.y), camera);
     var hit = raycaster.intersectObject(clay, false)[0];
     return hit && hit.uv ? hit.uv.clone() : null;
@@ -1462,7 +1462,7 @@
     document.fonts.load(f, probe).then(function () { if (txt.on) txtDraw(true); });
   }
 
-  /* Символы-штампы для заготовок: ставятся касанием туда, куда нажали, цветом из палитры.
+  /* Символы-штампы для вазы с круга и заготовок: ставятся касанием туда, куда нажали, цветом из палитры.
      Каждый рисуется в квадрате от −1 до 1 (ось y вниз); светлые блики — полупрозрачным белым поверх цвета. */
   var HI = "rgba(255,255,255,.5)", TAU = Math.PI * 2;
   function dot(g, x, y, r) { g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill(); }
@@ -1566,7 +1566,7 @@
       skin.fillStyle = skin.strokeStyle = paint.color; skin.globalAlpha = .95;
       skin.translate(x + o, y);
       // на вращающейся тарелке символ встаёт ровно к зрителю, как надпись
-      if (blank.kind === "disc") skin.rotate(clay.rotation.y % TAU);
+      if (blank && blank.kind === "disc") skin.rotate(clay.rotation.y % TAU);
       skin.scale(sx, sy);
       draw(skin);
       skin.restore();
@@ -1586,29 +1586,29 @@
     var sw = pal.map(function (p, i) {
       return '<button class="swatch" type="button" style="--c:' + p[0] + '" data-color="' + p[0] + '" aria-label="' + p[1] + '" title="' + p[1] + '" aria-pressed="' + (i === 0) + '"></button>';
     }).join("");
-    // у заготовок к кистям добавляется «Текст», поэтому подписи орнаментов короче: панель не должна расти
+    // к кистям добавляются «Символы» (у заготовок ещё и «Текст»), поэтому подписи орнаментов короткие: панель не должна расти
     var orn = ORNAMENTS.map(function (o) {
-      return '<button class="chip" type="button" data-orn="' + o[0] + '" aria-pressed="false"' + (D ? ' title="' + o[1] + '"' : "") + '><span class="orn-ico orn-' + o[0] + '" aria-hidden="true"></span>' + (D ? o[2] : o[1]) + "</button>";
+      return '<button class="chip" type="button" data-orn="' + o[0] + '" aria-pressed="false" title="' + o[1] + '"><span class="orn-ico orn-' + o[0] + '" aria-hidden="true"></span>' + o[2] + "</button>";
     }).join("");
-    // Надпись и символы — только у заготовок: их строка появляется под инструментами, когда выбран «Текст» или «Символы»
+    // Строки надписи (только у заготовок) и символов появляются под инструментами, когда выбран «Текст» или «Символы»
     var sq = function (id, title, inner) { return '<button class="chip chip-sq" type="button" id="' + id + '" title="' + title + '" aria-label="' + title + '">' + inner + "</button>"; };
-    var textChip = D ? '<button class="chip" type="button" data-tool="text" aria-pressed="false"><span class="ico ico-text" aria-hidden="true"></span><span class="lbl">Текст</span></button>' +
-      '<button class="chip" type="button" data-tool="sym" aria-pressed="false"><span class="ico ico-sym" aria-hidden="true"></span>Символы</button>' : "";
-    var subRows = D ? '<div class="row row-text" id="textRow" hidden>' +
+    var textChip = (D ? '<button class="chip" type="button" data-tool="text" aria-pressed="false"><span class="ico ico-text" aria-hidden="true"></span><span class="lbl">Текст</span></button>' : "") +
+      '<button class="chip" type="button" data-tool="sym" aria-pressed="false"><span class="ico ico-sym" aria-hidden="true"></span>Символы</button>';
+    var subRows = (D ? '<div class="row row-text" id="textRow" hidden>' +
       '<input class="text-in" id="textIn" type="text" maxlength="28" aria-label="Текст надписи" enterkeyhint="done" autocomplete="off" spellcheck="false">' +
       '<button class="chip chip-sq" type="button" id="textFont"><span class="font-aa" aria-hidden="true">Аа</span></button>' +
       '<button class="chip chip-sq" type="button" id="textArc" aria-pressed="false" title="' + (blank.kind === "disc" ? "Надпись по кругу тарелки" : "Надпись дугой") + '" aria-label="' + (blank.kind === "disc" ? "Надпись по кругу тарелки" : "Надпись дугой") + '"><span class="ico ico-arc" aria-hidden="true"></span></button>' +
       sq("textSmall", "Мельче", '<span class="ico ico-minus" aria-hidden="true"></span>') +
-      sq("textBig", "Крупнее", '<span class="ico ico-plus" aria-hidden="true"></span>') + "</div>" +
+      sq("textBig", "Крупнее", '<span class="ico ico-plus" aria-hidden="true"></span>') + "</div>" : "") +
       '<div class="row row-sym" id="symRow" hidden>' +
       SYMBOLS.map(function (s) { return '<button class="chip chip-sq" type="button" data-sym="' + s[0] + '" title="' + s[1] + '" aria-label="' + s[1] + '" aria-pressed="' + (s[0] === sym.id) + '"><span class="ico" aria-hidden="true"></span></button>'; }).join("") +
       sq("symSmall", "Символ мельче", '<span class="ico ico-minus" aria-hidden="true"></span>') +
-      sq("symBig", "Символ крупнее", '<span class="ico ico-plus" aria-hidden="true"></span>') + "</div>" : "";
+      sq("symBig", "Символ крупнее", '<span class="ico ico-plus" aria-hidden="true"></span>') + "</div>";
+    var hint = D ? blank.paintHint : 'Коснитесь вазы — круг проведёт поясок.<span class="hint-more"> Орнамент ляжет туда, куда вы нажмёте.</span>';
     // На телефоне инструменты — одна строка с прокруткой вбок (.tools), чтобы панель не съедала место у вазы
-    panel("Роспись",
-      D ? blank.paintHint : 'Коснитесь вазы — круг проведёт поясок.<span class="hint-more"> Орнамент ляжет туда, куда вы нажмёте.</span>',
+    panel("Роспись", hint,
       '<p class="label">Цвет</p><div class="row row-swatches">' + sw + "</div>" +
-      '<div class="tools"><p class="label">' + (D ? "Кисть, текст, символы и орнамент" : "Кисть и орнамент") + '</p><div class="row">' +
+      '<div class="tools"><p class="label">' + (D ? "Кисть, текст, символы и орнамент" : "Кисть, символы и орнамент") + '</p><div class="row">' +
       '<button class="chip" type="button" data-size="0.04" aria-pressed="true">Тонкая кисть</button>' +
       '<button class="chip" type="button" data-size="0.12" aria-pressed="false">Широкая кисть</button>' + textChip + orn + "</div></div>" + subRows +
       '<div class="row row-actions"><button class="btn btn-undo" type="button" id="undo" title="Отменить последнее действие (Ctrl+Z)" disabled aria-label="Назад"><span class="ico ico-undo" aria-hidden="true"></span><span class="lbl">Назад</span></button>' +
@@ -1630,7 +1630,7 @@
     function toolBtns(active) {
       C.querySelectorAll("[data-size],[data-orn],[data-tool]").forEach(function (x) { x.setAttribute("aria-pressed", x === active ? "true" : "false"); });
       ringFit();
-      if (D) subMode();
+      subMode();
     }
     C.querySelectorAll("[data-size]").forEach(function (b) {
       b.addEventListener("click", function () { paint.size = +b.dataset.size; paint.tool = "brush"; toolBtns(b); });
@@ -1657,33 +1657,26 @@
     if (spinBtn) spinBtn.addEventListener("click", function () { setSpin(this.getAttribute("aria-pressed") !== "true"); });
     document.getElementById("wipe").addEventListener("click", function () { txtLeave(); snapSkin(); if (D) skinBlank(); else skinBisque(); saveSoon(); });
     document.getElementById("toGlaze").addEventListener("click", function () { txtCommit(); startFire(); });
-    if (!D) return;
 
-    // Надпись: поле, шрифт (по кругу из трёх), дуга, мельче/крупнее; двигают пальцем прямо по изделию.
-    // Символы: выбирают значок и ставят касанием, мельче/крупнее.
+    // Символы (и на вазе с круга, и на заготовках): выбирают значок и ставят касанием, мельче/крупнее.
+    // Надпись — только на заготовках: поле, шрифт (по кругу из трёх), дуга, мельче/крупнее; двигают пальцем прямо по изделию.
     var textRow = document.getElementById("textRow"), symRow = document.getElementById("symRow"), inp = document.getElementById("textIn");
     var chipT = C.querySelector("[data-tool=text]"), chipS = C.querySelector("[data-tool=sym]"), fontB = document.getElementById("textFont"), arcB = document.getElementById("textArc");
-    inp.value = txt.str;
-    arcB.setAttribute("aria-pressed", txt.arc ? "true" : "false");
     function subMode() {
       var t = paint.tool === "text", s = paint.tool === "sym";
       if (!t) txtLeave();
-      textRow.hidden = !t; symRow.hidden = !s;
+      if (textRow) textRow.hidden = !t;
+      symRow.hidden = !s;
       // пока открыта строка надписи или символов, подписи групп прячутся: строка встаёт на их место, и панель не растёт
       C.classList.toggle("is-sub", t || s);
-      chipT.querySelector(".lbl").textContent = t ? "Ещё надпись" : "Текст";
-      ui.hint.innerHTML = t ? "Перетащите надпись пальцем по " + blank.dat + "." : s ? "Выберите символ и нажмите на " + blank.acc + "." : blank.paintHint;
+      if (chipT) chipT.querySelector(".lbl").textContent = t ? "Ещё надпись" : "Текст";
+      ui.hint.innerHTML = t ? "Перетащите надпись пальцем по " + blank.dat + "." : s ? "Выберите символ и нажмите на " + (D ? blank.acc : "вазу") + "." : hint;
       tip(t ? "Ведите надпись пальцем" : s ? "Нажмите, куда поставить символ" : "");
       if (!t) return;
       // по неподвижному изделию надпись вести проще; круг встаёт сразу, чтобы надпись не уехала из-под глаз
       if (spinBtn) { setSpin(true); spin = 0; }
       txtStart(); fontReady();
     }
-    chipT.addEventListener("click", function () {
-      // уже пишем: эта надпись остаётся на изделии, следующую набирают заново
-      if (paint.tool === "text") { txtCommit(); inp.value = txt.str = ""; inp.focus(); return; }
-      paint.tool = "text"; toolBtns(chipT);
-    });
     chipS.addEventListener("click", function () { paint.tool = "sym"; toolBtns(chipS); });
     var icons = symIcons();
     symRow.querySelectorAll("[data-sym]").forEach(function (b) {
@@ -1696,6 +1689,15 @@
     });
     document.getElementById("symSmall").addEventListener("click", function () { sym.size = clamp(sym.size / 1.2, .08, .45); });
     document.getElementById("symBig").addEventListener("click", function () { sym.size = clamp(sym.size * 1.2, .08, .45); });
+    if (!D) return;
+
+    inp.value = txt.str;
+    arcB.setAttribute("aria-pressed", txt.arc ? "true" : "false");
+    chipT.addEventListener("click", function () {
+      // уже пишем: эта надпись остаётся на изделии, следующую набирают заново
+      if (paint.tool === "text") { txtCommit(); inp.value = txt.str = ""; inp.focus(); return; }
+      paint.tool = "text"; toolBtns(chipT);
+    });
     arcB.addEventListener("click", function () {
       txt.arc = !txt.arc;
       arcB.setAttribute("aria-pressed", txt.arc ? "true" : "false");
