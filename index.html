@@ -303,7 +303,7 @@
   </div></div>
 
   <ol class="steps-rail" id="stepsRail" aria-label="Этапы игры">
-    <li data-step="lump" class="is-active"><span class="medal" aria-hidden="true"><img src="assets/plates/medal-lump.webp" width="200" height="200" alt=""></span><span class="step-name">Ком</span></li>
+    <li data-step="lump"><span class="medal" aria-hidden="true"><img src="assets/plates/medal-lump.webp" width="200" height="200" alt=""></span><span class="step-name">Ком</span></li>
     <li data-step="shape"><span class="medal" aria-hidden="true"><img src="assets/plates/medal-wheel.webp" width="200" height="200" alt=""></span><span class="step-name">Круг</span></li>
     <li data-step="paint"><span class="medal" aria-hidden="true"><img src="assets/plates/medal-paint.webp" width="200" height="200" alt=""></span><span class="step-name">Роспись</span></li>
     <li data-step="fire"><span class="medal" aria-hidden="true"><img src="assets/plates/medal-kiln.webp" width="200" height="200" alt=""></span><span class="step-name">Печь</span></li>
@@ -329,16 +329,20 @@
   <!-- док: на десктопе даёт панели подрасти вверх, когда этап длинный (роспись), вместо прокрутки внутри -->
   <div class="game-dock">
     <div class="game-panel" id="gamePanel">
-      <button class="game-restart" type="button" id="gameRestart" title="Начать игру с кома глины"><span class="ico ico-restart" aria-hidden="true"></span><span class="game-restart-label">Начать сначала</span></button>
+      <button class="game-restart" type="button" id="gameRestart" title="Вернуться к выбору занятия" hidden><span class="ico ico-restart" aria-hidden="true"></span><span class="game-restart-label">Начать сначала</span></button>
       <div class="game-text" aria-live="polite">
-        <p class="game-step" id="gameStep">Этап 1 из 5</p>
-        <h2 class="game-title" id="gameTitle">Ком глины</h2>
+        <p class="game-step" id="gameStep">Два занятия на выбор</p>
+        <h2 class="game-title" id="gameTitle">С чего начнём?</h2>
       </div>
       <!-- инструменты этапа, которые должны быть на виду сразу под заголовком (роспись: остановить круг, смыть) -->
       <div class="game-tools" id="gameTools" hidden></div>
-      <p class="game-hint" id="gameHint" aria-live="polite">Глина легла на круг неровно, и её бьёт из стороны в сторону. <strong>Зажмите кнопку или саму глину</strong>, чтобы отцентровать ком.</p>
-      <!-- кнопка первого этапа стоит в разметке сразу: когда игра загрузится, панель не вырастет и «Пропустить игру» не съедет -->
-      <div class="game-controls is-lump" id="gameControls"><button class="hold" type="button" id="holdCenter"><span>Центровать</span></button></div>
+      <p class="game-hint" id="gameHint" aria-live="polite">Распишите готовое изделие или слепите своё на&nbsp;гончарном круге.</p>
+      <!-- выбор занятия стоит в разметке сразу: когда игра загрузится, панель не вырастет и «Пропустить игру» не съедет.
+           js/game.js берёт эту разметку как есть и возвращает её по кнопке «Начать сначала» -->
+      <div class="game-controls is-choose" id="gameControls">
+        <button class="choice" type="button" data-mode="decor"><span class="choice-medal" aria-hidden="true"><img src="assets/plates/medal-paint.webp" width="200" height="200" alt=""></span><span class="choice-text"><span class="choice-title">Раскрасить изделие</span><span class="choice-sub">Кружка, ваза, тарелка, матрёшка и&nbsp;не&nbsp;только</span></span><span class="ico ico-arrow" aria-hidden="true"></span></button>
+        <button class="choice" type="button" data-mode="wheel"><span class="choice-medal" aria-hidden="true"><img src="assets/plates/medal-wheel.webp" width="200" height="200" alt=""></span><span class="choice-text"><span class="choice-title">Создать изделие на&nbsp;гончарном круге</span><span class="choice-sub">Центровка, форма, роспись и&nbsp;обжиг</span></span><span class="ico ico-arrow" aria-hidden="true"></span></button>
+      </div>
     </div>
   </div>
 

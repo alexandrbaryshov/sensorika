@@ -1,6 +1,7 @@
 /* ==========================================================================
-   Сенсорика: «Слепите вазу» — 3D-демо полного цикла
-   ком → центровка → формовка на круге → роспись → глазурь и обжиг → готово
+   Сенсорика: «Слепите вазу» — 3D-демо полного цикла. Сначала выбор занятия:
+   • гончарный круг: ком → центровка → формовка на круге → роспись → глазурь и обжиг → готово
+   • роспись заготовки: кружка, подсвечник, ваза, тарелка или картина → роспись и надпись → глазурь и обжиг → готово
    Three.js r159 (UMD, assets/vendor/three.min.js), работает и с file://
    ========================================================================== */
 (function () {
@@ -184,10 +185,28 @@
     var t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
     return t;
   }
+  // Турнетка для росписи заготовок: гладкий диск с рисками центровки и засохшими каплями краски
+  function turnTexture() {
+    var c = makeCanvas(1024, 1024), g = c.getContext("2d");
+    g.fillStyle = "#3e3439"; g.fillRect(0, 0, 1024, 1024);
+    g.lineWidth = 2.5;
+    for (var r = 70; r < 512; r += 62) { g.strokeStyle = "rgba(240,214,196," + (r % 124 < 62 ? .2 : .1) + ")"; g.beginPath(); g.arc(512, 512, r, 0, Math.PI * 2); g.stroke(); }
+    var drops = ["#2b1c30", "#2f55a4", "#3fc1c9", "#d6a23e", "#c8352b", "#3d8c4f", "#8f7fd0", "#efe1d2"];
+    for (var i = 0; i < 34; i++) {
+      var a = rand(0, Math.PI * 2), rr = rand(360, 500);
+      g.globalAlpha = rand(.3, .65); g.fillStyle = drops[i % drops.length];
+      g.beginPath(); g.ellipse(512 + Math.cos(a) * rr, 512 + Math.sin(a) * rr, rand(4, 13), rand(3, 7), a, 0, Math.PI * 2); g.fill();
+    }
+    g.globalAlpha = 1;
+    var t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  }
   var batSide = new THREE.MeshStandardMaterial({ color: 0x4a3534, roughness: .55, metalness: .1 });
+  var batTex = batTexture(), turnTex = null;
+  var batTop = new THREE.MeshPhysicalMaterial({ map: batTex, roughness: .42, clearcoat: .4, clearcoatRoughness: .35 });
   var wheelHead = new THREE.Mesh(
     new THREE.CylinderGeometry(1.62, 1.66, 0.3, 120),
-    [batSide, new THREE.MeshPhysicalMaterial({ map: batTexture(), roughness: .42, clearcoat: .4, clearcoatRoughness: .35 }), batSide]
+    [batSide, batTop, batSide]
   );
   wheelHead.position.y = -0.15;
   wheelHead.receiveShadow = true;
@@ -334,17 +353,224 @@
     return { jar: 1.75, cylinder: 1.3, bowl: 1.0, mug: 1.55, vase: 2.1, amphora: 2.3 }[name];
   }
 
+  /* ---------------------------------------------------------------- заготовки для росписи */
+  // Готовые изделия из белой глины, уже прошедшие первый (утельный) обжиг: их расписывают, глазуруют и обжигают ещё раз.
+  // Кружка, подсвечник и ваза — тела вращения: u — угол, v — путь по профилю от центра дна вверх по стенке и внутрь.
+  // Точки профиля стоят равномерно по длине, снаружи гуще (роспись видна в основном там), поэтому масштаб кисти
+  // по v у каждой точки свой (pxV). Тарелку и картину расписывают в плоской развёртке, как лист бумаги.
+  var CLAY_D = "#eee0cf";
+  var BLANK_ORDER = ["mug", "candle", "vase", "plate", "picture", "roly", "doll"];
+  var BLANKS = {
+    mug: {
+      name: "Кружка", gen: "кружки", acc: "кружку", dat: "кружке", card: "МОЯ КРУЖКА", file: "moya-kruzhka-sensorika.jpg",
+      done: "Кружка обожжена и сияет глазурью. Настоящую распишите в «Сенсорике»!<span class=\"hint-more\"> Чай из неё будет самым вкусным.</span>",
+      kind: "lathe", spin: true, textY: .72, frame: { y: .74, half: 1.32, elev: .3 },
+      parts: [
+        { w: .3, c: [[0, .035], [.42, .035], [.6, 0]] },
+        { w: 1, outer: true, c: [[.6, 0], [.68, .05], [.72, .28], [.72, .8], [.7, 1.16], [.69, 1.29], [.655, 1.325]] },
+        { w: .45, c: [[.655, 1.325], [.62, 1.29], [.615, 1.05], [.615, .45], [.58, .19], [.42, .155], [0, .155]] }
+      ],
+      build: function (b) {
+        // ручка — плоская лента сбоку; роспись берёт с полосы стенки за собой, поэтому мазок у ручки ложится и на неё
+        var path = new THREE.CatmullRomCurve3([new V3(.66, 1.05, 0), new V3(.97, 1.03, 0), new V3(1.11, .78, 0), new V3(1.01, .47, 0), new V3(.68, .35, 0)]);
+        var g = new THREE.TubeGeometry(path, 48, .07, 14, false).scale(1, 1, 1.45);
+        var v1 = vAtY(b.surf, 1.05), v0 = vAtY(b.surf, .35), uv = g.attributes.uv;
+        for (var i = 0; i < uv.count; i++) uv.setXY(i, .25 + (uv.getY(i) - .5) * .05, lerp(v1, v0, uv.getX(i)));
+        var h = new THREE.Mesh(g, clayMat);
+        h.castShadow = true; h.receiveShadow = true;
+        b.extras.push(h); b.paintable = [h];
+      }
+    },
+    candle: {
+      name: "Подсвечник", gen: "подсвечника", acc: "подсвечник", dat: "подсвечнику", card: "МОЙ ПОДСВЕЧНИК", file: "moy-podsvechnik-sensorika.jpg",
+      done: "Подсвечник обожжён и сияет глазурью. Настоящий распишите в «Сенсорике»!<span class=\"hint-more\"> Свеча в нём будет гореть по-особенному.</span>",
+      // контейнерный подсвечник — керамический стакан, внутри залита свеча
+      kind: "lathe", spin: true, textY: .55, frame: { y: .62, half: 1.1, elev: .38 },
+      parts: [
+        { w: .3, c: [[0, .035], [.42, .035], [.54, 0]] },
+        { w: 1, outer: true, c: [[.54, 0], [.575, .035], [.585, .2], [.605, .7], [.62, 1.12], [.615, 1.18], [.585, 1.2]] },
+        { w: .45, c: [[.585, 1.2], [.55, 1.17], [.545, 1.0], [.525, .45], [.5, .2], [.4, .15], [0, .145]] }
+      ],
+      build: function (b) {
+        // воск залит в стакан на витрине и в готовом подсвечнике (там свеча горит); пока расписывают, стакан пустой
+        var candle = new THREE.Mesh(new THREE.CylinderGeometry(.535, .47, .715, 48), new THREE.MeshStandardMaterial({ color: 0xf3e9da, roughness: .6 }));
+        candle.position.y = .5; candle.receiveShadow = true;
+        var wick = new THREE.Mesh(new THREE.CylinderGeometry(.01, .012, .09, 6), new THREE.MeshBasicMaterial({ color: 0x2a1c1c }));
+        wick.position.y = .4; candle.add(wick);
+        // пламя: тёплый язычок, светлая сердцевина и ореол, который складывается со сценой
+        var flame = new THREE.Mesh(new THREE.SphereGeometry(.05, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffa94d, transparent: true, opacity: .9, depthWrite: false }));
+        flame.scale.set(1, 2.2, 1); flame.position.y = .53; candle.add(flame);
+        var core = new THREE.Mesh(new THREE.SphereGeometry(.026, 12, 10), new THREE.MeshBasicMaterial({ color: 0xfff4dc }));
+        core.position.y = -.008; flame.add(core);
+        var gc = makeCanvas(64, 64), gg = gc.getContext("2d"), gr = gg.createRadialGradient(32, 32, 0, 32, 32, 32);
+        gr.addColorStop(0, "rgba(255,214,150,.85)"); gr.addColorStop(.35, "rgba(255,150,70,.32)"); gr.addColorStop(1, "rgba(255,120,40,0)");
+        gg.fillStyle = gr; gg.fillRect(0, 0, 64, 64);
+        var gt = new THREE.CanvasTexture(gc); gt.colorSpace = THREE.SRGBColorSpace;
+        var glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: gt, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+        glow.scale.set(.55 / 1, .55 / 2.2, 1); flame.add(glow);
+        b.candle = candle; b.flame = flame;
+        b.extras.push(candle);
+      },
+      stage: function (b, st) {
+        b.candle.visible = st !== "paint" && st !== "fire";
+        b.flame.visible = st === "done";
+        candleLight.position.y = 1.15;
+        candleLight.intensity = st === "done" ? 2.4 : 0;
+      }
+    },
+    vase: {
+      name: "Ваза", gen: "вазы", acc: "вазу", dat: "вазе", card: "МОЯ ВАЗА", file: "moya-vaza-sensorika.jpg",
+      done: "Ваза обожжена и сияет глазурью. Настоящую распишите в «Сенсорике»!<span class=\"hint-more\"> Она будет тяжёлой, тёплой и только вашей.</span>",
+      kind: "lathe", spin: true, textY: .95, frame: { y: 1.06, half: 1.45, elev: .2 },
+      parts: [
+        { w: .25, c: [[0, .03], [.3, .03], [.44, 0]] },
+        { w: 1, outer: true, c: [[.44, 0], [.47, .05], [.45, .13], [.6, .4], [.79, .78], [.78, 1.1], [.56, 1.45], [.37, 1.7], [.35, 1.86], [.42, 2.0], [.49, 2.08]] },
+        { w: .35, c: [[.49, 2.08], [.43, 2.065], [.31, 1.9], [.29, 1.7], [.46, 1.45], [.68, 1.1], [.69, .78], [.5, .36], [.33, .17], [0, .15]] }
+      ]
+    },
+    plate: {
+      name: "Тарелка", gen: "тарелки", acc: "тарелку", dat: "тарелке", card: "МОЯ ТАРЕЛКА", file: "moya-tarelka-sensorika.jpg",
+      done: "Тарелка обожжена и сияет глазурью. Настоящую распишите в «Сенсорике»!<span class=\"hint-more\"> Она будет только вашей.</span>",
+      kind: "disc", spin: true, textY: .09, rimR: 1.18, base: "#e4d3bf", frame: { y: .16, half: 1.5, elev: .8 },
+      parts: [
+        { w: .2, c: [[0, .045], [.5, .045], [.56, 0], [.66, .005]] },
+        { w: .6, c: [[.66, .005], [1.0, .12], [1.2, .2], [1.245, .245]] },
+        { w: 1, outer: true, c: [[1.245, .245], [1.2, .265], [.98, .195], [.76, .1], [.6, .085], [0, .085]] }
+      ]
+    },
+    picture: {
+      name: "Картина", gen: "картины", acc: "картину", dat: "картине", card: "МОЯ КАРТИНА", file: "moya-kartina-sensorika.jpg",
+      done: "Картина обожжена и сияет глазурью. Настоящую распишите в «Сенсорике»!<span class=\"hint-more\"> Её можно повесить на стену.</span>",
+      kind: "flat", spin: false, textY: .81, y0: .09, tilt: -.12, base: "#e8d8c5", frame: { y: .86, half: 1.16, elev: .08 }
+    },
+    // фигурки — сплошные тела вращения: профиль идёт от центра донышка по боку до макушки
+    roly: {
+      name: "Неваляшка", gen: "неваляшки", acc: "неваляшку", dat: "неваляшке", card: "МОЯ НЕВАЛЯШКА", file: "moya-nevalyashka-sensorika.jpg",
+      done: "Неваляшка обожжена и сияет глазурью. Настоящую распишите в «Сенсорике»!<span class=\"hint-more\"> Пусть стоит на полке и улыбается.</span>",
+      kind: "lathe", spin: true, textY: .5, frame: { y: .92, half: 1.3, elev: .2 },
+      parts: [
+        { w: .3, c: [[0, 0], [.12, 0], [.24, .004]] },
+        { w: 1, outer: true, c: [[.24, .004], [.5, .07], [.71, .28], [.8, .55], [.75, .84], [.58, 1.04], [.44, 1.13], [.45, 1.2], [.53, 1.32], [.56, 1.47], [.51, 1.63], [.36, 1.77], [.16, 1.83], [0, 1.845]] }
+      ]
+    },
+    doll: {
+      name: "Матрёшка", gen: "матрёшки", acc: "матрёшку", dat: "матрёшке", card: "МОЯ МАТРЁШКА", file: "moya-matryoshka-sensorika.jpg",
+      done: "Матрёшка обожжена и сияет глазурью. Настоящую распишите в «Сенсорике»!<span class=\"hint-more\"> Русская красавица, расписанная вами.</span>",
+      kind: "lathe", spin: true, textY: .45, frame: { y: .95, half: 1.32, elev: .2 },
+      parts: [
+        { w: .3, c: [[0, 0], [.3, 0], [.47, .004]] },
+        { w: 1, outer: true, c: [[.47, .004], [.55, .05], [.61, .28], [.66, .58], [.63, .88], [.52, 1.1], [.43, 1.21], [.44, 1.3], [.47, 1.47], [.43, 1.66], [.3, 1.8], [.14, 1.86], [0, 1.875]] }
+      ]
+    }
+  };
+  BLANK_ORDER.forEach(function (id) {
+    var b = BLANKS[id];
+    b.id = id;
+    b.paintHint = b.kind === "disc" ? "Коснитесь тарелки — круг проведёт кольцо.<span class=\"hint-more\"> Орнамент ляжет кольцом там, где вы нажмёте.</span>"
+      : b.kind === "flat" ? "Рисуйте пальцем прямо по картине.<span class=\"hint-more\"> Орнамент ляжет полосой там, где вы нажмёте.</span>"
+      : "Коснитесь " + b.gen + " — круг проведёт поясок.<span class=\"hint-more\"> Орнамент ляжет туда, куда вы нажмёте.</span>";
+  });
+
+  // Профиль по контрольным точкам (сглаживание Catmull-Rom), точки равномерно по длине с весом участка
+  function latheSurface(parts, total) {
+    var pts = [], o0 = 0, o1 = 0;
+    var curves = parts.map(function (p) { return new THREE.SplineCurve(p.c.map(function (q) { return new V2(q[0], q[1]); })); });
+    var ws = curves.map(function (c, i) { return c.getLength() * parts[i].w; });
+    var wsum = ws.reduce(function (a, b) { return a + b; }, 0);
+    curves.forEach(function (c, i) {
+      var sp = c.getSpacedPoints(Math.max(6, Math.round(total * ws[i] / wsum)));
+      if (i > 0) sp.shift();
+      if (parts[i].outer) { o0 = Math.max(0, pts.length - 1); o1 = pts.length + sp.length - 1; }
+      for (var k = 0; k < sp.length; k++) pts.push(sp[k]);
+    });
+    var n = pts.length, r = new Float32Array(n), ds = new Float32Array(n);
+    for (var j = 0; j < n; j++) {
+      pts[j].x = r[j] = Math.max(pts[j].x, .0005);
+      var a = pts[Math.max(0, j - 1)], b = pts[Math.min(n - 1, j + 1)];
+      ds[j] = Math.max(1e-3, a.distanceTo(b) / (j > 0 && j < n - 1 ? 2 : 1));
+    }
+    return { pts: pts, r: r, ds: ds, n: n, o0: o0, o1: o1 };
+  }
+  function surfIdx(s, v) { return clamp(Math.round(v * (s.n - 1)), 0, s.n - 1); }
+  function vAtY(s, y) {
+    var best = s.o0, d = 1e9;
+    for (var j = s.o0; j <= s.o1; j++) { var e = Math.abs(s.pts[j].y - y); if (e < d) { d = e; best = j; } }
+    return best / (s.n - 1);
+  }
+
+  // Бока картины: материал повторяет глину на лицевой стороне (обжиг, глазурь) — см. цикл
+  var edgeMat = new THREE.MeshPhysicalMaterial({ color: new THREE.Color(CLAY_D), roughness: .86, metalness: 0, emissive: new THREE.Color(0xff5a1a), emissiveIntensity: 0 });
+  // Плоским изделиям вместо колец от пальцев — мелкое зерно глины
+  var grainTex = (function () {
+    var c = makeCanvas(256, 256), g = c.getContext("2d");
+    g.fillStyle = "#808080"; g.fillRect(0, 0, 256, 256);
+    for (var i = 0; i < 2600; i++) { var v = Math.round(rand(70, 190)); g.fillStyle = "rgb(" + v + "," + v + "," + v + ")"; g.globalAlpha = rand(.2, .6); g.fillRect(rand(0, 256), rand(0, 256), rand(1, 2.5), rand(1, 2.5)); }
+    var t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3, 3);
+    return t;
+  })();
+  // Свеча в подсвечнике загорается на «Готово»; свет живёт в сцене всегда, чтобы шейдеры не пересобирались
+  var candleLight = new THREE.PointLight(0xffb36b, 0, 3.2, 2);
+  candleLight.position.set(0, 1.15, 0);
+  piece.add(candleLight);
+  // Подставка для картины на турнетке
+  var stand = new THREE.Group();
+  stand.visible = false;
+  studio.add(stand);
+  (function () {
+    var wood = new THREE.MeshStandardMaterial({ color: 0x6e4a33, roughness: .78 });
+    var ledge = new THREE.Mesh(new THREE.BoxGeometry(2.15, .09, .42), wood); ledge.position.set(0, .045, -.03);
+    var lip = new THREE.Mesh(new THREE.BoxGeometry(2.15, .08, .05), wood); lip.position.set(0, .13, .155);
+    [ledge, lip].forEach(function (m) { m.castShadow = true; m.receiveShadow = true; stand.add(m); });
+  })();
+
+  function buildBlank(b) {
+    b.extras = []; b.paintable = [];
+    if (b.kind === "flat") {
+      b.W = 1.9; b.H = 1.45; b.wrap = false;
+      b.geo = new THREE.PlaneGeometry(b.W, b.H).translate(0, b.H / 2, 0);
+      var slab = new THREE.Mesh(new THREE.BoxGeometry(b.W, b.H, .07).translate(0, b.H / 2, -.04), edgeMat);
+      slab.castShadow = true; slab.receiveShadow = true;
+      b.extras.push(slab);
+      b.pxU = function () { return SKIN / b.W; };
+      b.pxV = function () { return SKIN / b.H; };
+      b.bandLen = function () { return b.W; };
+    } else {
+      var s = b.surf = latheSurface(b.parts, 190);
+      b.geo = new THREE.LatheGeometry(s.pts, SEG);
+      if (b.kind === "disc") {
+        // развёртка сверху: u — вправо, v — вглубь; центр тарелки в центре холста
+        b.D = 2.6; b.wrap = false;
+        var p = b.geo.attributes.position, uv = b.geo.attributes.uv;
+        for (var i = 0; i < p.count; i++) uv.setXY(i, .5 + p.getX(i) / b.D, .5 - p.getZ(i) / b.D);
+        b.pxU = b.pxV = function () { return SKIN / b.D; };
+      } else {
+        b.wrap = true;
+        b.pxU = function (v) { return SKIN / (2 * Math.PI * Math.max(s.r[surfIdx(s, v)], .08)); };
+        b.pxV = function (v) { return SKIN / ((s.n - 1) * s.ds[surfIdx(s, v)]); };
+        b.bandLen = function (v) { return 2 * Math.PI * Math.max(s.r[surfIdx(s, v)], .12); };
+      }
+    }
+    if (b.build) b.build(b);
+    b.targets = [clay].concat(b.paintable);
+  }
+
   /* ---------------------------------------------------------------- камера и кадр */
   var view = { pos: new V3(), target: new V3(), goalPos: new V3(), goalTarget: new V3() };
   var focus = "wheel";
   // Один близкий ракурс на всех этапах — у круга, в печи и на росписи: ваза не меняет размер, мелкие детали удобно вести пальцем.
   // Кадр подобран под самую большую форму (RMAX × HMAX) при соотношении сторон проёма арки ≈ 0,92.
   var FRAME = { y: 1.08, half: 1.53, elev: 0.18 };
+  // У заготовок свой кадр: кружка ближе, тарелка сверху. В печь камера заглядывает не выше свода.
+  function frameOf(where) {
+    if (!blank) return FRAME;
+    var f = blank.frame;
+    return where === "kiln" ? { y: Math.max(f.y, .7), half: Math.max(f.half, 1.25), elev: Math.min(f.elev, .45) } : f;
+  }
   function framing(where) {
-    var cx = where === "kiln" ? KX : 0;
-    var dist = FRAME.half / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-    view.goalTarget.set(cx, FRAME.y, 0);
-    view.goalPos.set(cx, FRAME.y + dist * Math.sin(FRAME.elev), dist * Math.cos(FRAME.elev));
+    var F = frameOf(where), cx = where === "kiln" ? KX : 0;
+    var dist = F.half / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    view.goalTarget.set(cx, F.y, 0);
+    view.goalPos.set(cx, F.y + dist * Math.sin(F.elev), dist * Math.cos(F.elev));
   }
   function snapCamera() { view.pos.copy(view.goalPos); view.target.copy(view.goalTarget); }
 
@@ -367,13 +593,59 @@
   function tween(dur, fn, done) { tweens.push({ t: 0, d: REDUCED ? 0.001 : dur, fn: fn, done: done }); }
 
   var STEPS = ["lump", "shape", "paint", "fire", "done"];
+  var STEPS_D = ["pick", "paint", "fire", "done"];
+  // Занятие: «wheel» — гончарный круг, «decor» — роспись готовой заготовки (blank)
+  var mode = "wheel", blank = null;
+  function medalLi(step, img, name) {
+    return '<li data-step="' + step + '"><span class="medal" aria-hidden="true"><img src="assets/plates/' + img + '.webp" width="200" height="200" alt=""></span><span class="step-name">' + name + "</span></li>";
+  }
+  var RAIL_WHEEL = ui.frieze.innerHTML;
+  var RAIL_DECOR = medalLi("pick", "medal-bowl", "Заготовка") + medalLi("paint", "medal-paint", "Роспись") + medalLi("fire", "medal-kiln", "Печь") + medalLi("done", "medal-amphora", "Готово");
+  function setMode(m) {
+    if (m === mode) return;
+    mode = m;
+    ui.frieze.innerHTML = m === "decor" ? RAIL_DECOR : RAIL_WHEEL;
+    if (m === "decor") {
+      // турнетка меньше гончарного круга: тарелка на ней не тонет в тёмном диске
+      if (!turnTex) turnTex = turnTexture();
+      batTop.map = turnTex; wheelHead.scale.set(.8, 1, .8);
+      return;
+    }
+    // обратно к кругу: глина снова тело вращения из profile(), без ручек и подставок
+    batTop.map = batTex; wheelHead.scale.set(1, 1, 1);
+    if (blank) blank.extras.forEach(function (x) { clay.remove(x); });
+    blank = null;
+    stand.visible = false; candleLight.intensity = 0;
+    clay.geometry = new THREE.BufferGeometry(); dirty = true;
+    clay.position.set(0, 0, 0); clay.rotation.set(0, 0, 0); clay.scale.set(1, 1, 1);
+    clayMat.bumpMap = streakTex;
+  }
+  function setBlank(id) {
+    var b = BLANKS[id];
+    if (!b.geo) buildBlank(b);
+    if (blank) blank.extras.forEach(function (x) { clay.remove(x); });
+    blank = b;
+    clay.geometry = b.geo;
+    b.extras.forEach(function (x) { clay.add(x); });
+    stand.visible = id === "picture";
+    edgeMat.color.set(b.base || CLAY_D);
+    candleLight.intensity = 0;
+    clay.position.set(0, b.y0 || 0, 0); clay.rotation.set(b.tilt || 0, 0, 0); clay.scale.set(1, 1, 1);
+    piece.rotation.set(0, 0, 0);
+    if (!b.spin) spin = 0;
+    clayMat.bumpMap = b.wrap ? streakTex : grainTex;
+    dirty = false;
+    focus = "wheel"; framing("wheel");
+  }
+  function blankStage(st) { if (blank && blank.stage) blank.stage(blank, st); }
+  function steps() { return mode === "decor" ? STEPS_D : STEPS; }
   function setStep(name) {
-    var idx = STEPS.indexOf(name);
+    var list = steps(), idx = list.indexOf(name);
     ui.frieze.querySelectorAll("li").forEach(function (li, i) {
       li.classList.toggle("is-active", i === idx);
       li.classList.toggle("is-done", i < idx);
     });
-    ui.step.textContent = "Этап " + (idx + 1) + " из 5";
+    ui.step.textContent = "Этап " + (idx + 1) + " из " + list.length;
     // на последнем этапе есть своя кнопка «Слепить ещё»
     if (ui.restart) ui.restart.hidden = name === "done";
     heroEl.classList.toggle("is-done", name === "done");
@@ -392,12 +664,14 @@
   var SAVE_KEY = "sensorika:game", SAVE_TTL = 7 * 864e5;
   // этап для сохранения: промежуточные анимации относим к этапу, который начнётся после перезагрузки
   var SAVE_STEP = { intro: "lump", drop: "lump", lump: "lump", opening: "lump", shape: "shape", drying: "paint", paint: "paint", transfer: "fire", fire: "fire", cracked: "fire", cooling: "done", done: "done" };
+  var SAVE_STEP_D = { pick: "pick", swap: "pick", paint: "paint", transfer: "fire", fire: "fire", cracked: "fire", cooling: "done", done: "done" };
   var saveTimer = 0;
   function loadSave() {
     if (DEMO) return null;
     try {
       var s = JSON.parse(localStorage.getItem(SAVE_KEY) || "null");
       if (!s || s.v !== 1 || Date.now() - s.t > SAVE_TTL) return null;
+      if (s.mode === "decor") return BLANKS[s.blank] && STEPS_D.indexOf(s.step) >= 0 ? s : null;
       if (s.step !== "lump" && !(s.R && s.R.length === N)) return null;
       return s;
     } catch (e) { return null; }
@@ -405,15 +679,20 @@
   function save() {
     clearTimeout(saveTimer); saveTimer = 0;
     if (DEMO) return;
-    var step = SAVE_STEP[state] || "lump";
+    var decor = mode === "decor" && blank;
+    var step = decor ? SAVE_STEP_D[state] || "pick" : SAVE_STEP[state] || "lump";
     var s = { v: 1, t: Date.now(), step: step };
-    if (step !== "lump") {
+    if (decor) { s.mode = "decor"; s.blank = blank.id; }
+    else if (step !== "lump") {
       s.H = +H.toFixed(4);
       s.R = Array.prototype.map.call(R, function (r) { return +r.toFixed(4); });
     }
     // роспись — картинкой: пока глина подсыхает, на изделии ещё нет росписи
     if ((step === "paint" && state !== "drying") || step === "fire" || step === "done") {
+      // надпись, которую ещё двигают, сохраняем без рамки выделения
+      if (txt.on) txtDraw(false);
       try { s.skin = skinCv.toDataURL("image/jpeg", 0.86); } catch (e) {}
+      if (txt.on) txtDraw(true);
     }
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); }
     catch (e) {
@@ -465,12 +744,19 @@
     img.src = url;
   }
   function restore(s) {
-    placeShape(s.R, s.H);
-    if (s.step === "shape") { matWet(); skinNeutral(); startShape(); return; }
-    skinBisque();
+    if (s.mode === "decor") {
+      setMode("decor"); setBlank(s.blank);
+      if (s.step === "pick") { startPick(); return; }
+      skinBlank();
+    } else {
+      setMode("wheel");
+      placeShape(s.R, s.H);
+      if (s.step === "shape") { matWet(); skinNeutral(); startShape(); return; }
+      skinBisque();
+    }
     if (s.skin) drawSkin(s.skin);
     if (s.step === "fire") {
-      matBisque();
+      matBisque(); blankStage("fire");
       setStep("fire"); spinGoal = 0; grab(false); tip("");
       focus = "kiln"; framing("kiln"); snapCamera();
       piece.position.set(KX, 0, 0);
@@ -480,14 +766,25 @@
     else { matBisque(); startPaint(); }
   }
 
-  // «Начать сначала» на любом этапе. Если работа уже есть, кнопка просит подтвердить вторым нажатием.
-  function restart() {
+  function resetPlay() {
     tweens.length = 0; morph = null; fire = null;
     holding = false; holdBtn = null; pointer.down = false; paint.last = null;
-    finger.visible = false;
+    finger.visible = false; txt.on = false;
     coilMat.emissiveIntensity = 0; kilnLight.intensity = 0;
+  }
+  // «Слепить ещё»: новый ком на круг
+  function restart() {
     var fromKiln = focus === "kiln";
+    resetPlay();
     startLump();
+    if (fromKiln) snapCamera();
+    save();
+  }
+  // «Начать сначала» на любом этапе — к выбору занятия. Если работа уже есть, кнопка просит подтвердить вторым нажатием.
+  function restartAll() {
+    var fromKiln = focus === "kiln";
+    resetPlay();
+    startChoice();
     if (fromKiln) snapCamera();
     save();
   }
@@ -500,7 +797,7 @@
   }
   if (ui.restart) ui.restart.addEventListener("click", function () {
     markPlaying();
-    var risky = state !== "drop" && state !== "lump" && state !== "intro";
+    var risky = ["drop", "lump", "intro", "choose", "leaving", "pick", "swap"].indexOf(state) < 0;
     if (risky && !ui.restart.classList.contains("is-confirm")) {
       ui.restart.classList.add("is-confirm");
       ui.restart.querySelector(".game-restart-label").textContent = "Точно сначала?";
@@ -509,7 +806,7 @@
       return;
     }
     resetRestartBtn();
-    restart();
+    restartAll();
   });
   // любое касание панели игры — тоже начало работы с глиной (click — для клавиатуры)
   [ui.controls, ui.tools].forEach(function (el) {
@@ -532,6 +829,104 @@
     btn.addEventListener("keydown", function (e) { if ((e.key === " " || e.key === "Enter") && !e.repeat) down(e); });
     btn.addEventListener("keyup", function (e) { if (e.key === " " || e.key === "Enter") up(); });
     btn.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+  }
+
+  /* ---------- 0. выбор занятия */
+  // Разметка выбора стоит в index.html сразу (панель не прыгает, пока грузится 3D); сюда её возвращает «Начать сначала»
+  var CHOICE = { step: ui.step.textContent, title: ui.title.textContent, hint: ui.hint.innerHTML, controls: ui.controls.innerHTML };
+  function startChoice() {
+    state = "choose";
+    setMode("wheel");
+    focus = "wheel"; framing("wheel");
+    grab(false); hold(false); tip("");
+    heroEl.classList.remove("cta-on", "is-done");
+    ui.frieze.querySelectorAll("li").forEach(function (li) { li.classList.remove("is-active", "is-done"); });
+    if (ui.restart) ui.restart.hidden = true;
+    ui.step.textContent = CHOICE.step;
+    panel(CHOICE.title, CHOICE.hint, CHOICE.controls, "choose");
+    // витрина: расписанная амфора под глазурью неспешно кружится на круге
+    var tmp = new Float32Array(N);
+    placeShape(tmp, presetProfile("amphora", tmp));
+    piece.position.set(0, 0, 0); piece.rotation.set(0, 0, 0);
+    skinBisque();
+    drawBand("meander", outerV(30), "#2b1c30"); drawBand("chuvash", outerV(16), "#9e4b35"); drawBand("dots", outerV(38), "#3fc1c9");
+    matGlazed();
+    spinGoal = 0.6;
+    ui.controls.querySelectorAll("[data-mode]").forEach(function (b) {
+      b.addEventListener("click", function () { choose(b.dataset.mode); });
+    });
+  }
+  function choose(m) {
+    if (state !== "choose") return;
+    state = "leaving";
+    ui.controls.querySelectorAll("[data-mode]").forEach(function (b) { b.disabled = true; b.classList.toggle("is-picked", b.dataset.mode === m); });
+    // витрина уезжает вверх, на её место ложится ком глины или заготовка
+    tween(0.5, function (k) { piece.position.y = easeInOut(k) * 5.5; }, function () {
+      piece.position.y = 0;
+      if (m === "wheel") startLump();
+      else { setMode("decor"); setBlank(BLANK_ORDER[0]); startPick(true); }
+    });
+  }
+
+  /* ---------- Р1. заготовка: выбор изделия для росписи */
+  var pickGo = false;
+  function startPick(drop) {
+    state = "pick"; pickGo = false;
+    setStep("pick");
+    grab(false); hold(false); tip("");
+    heroEl.classList.remove("cta-on");
+    matBisque(); skinBlank(); blankStage("pick");
+    spinGoal = blank.spin ? 0.6 : 0;
+    var chips = BLANK_ORDER.map(function (id) {
+      var b = BLANKS[id];
+      return '<button class="chip chip-blank" type="button" data-blank="' + id + '" aria-pressed="' + (b === blank) + '"><span class="blank-ico blank-' + id + '" aria-hidden="true"></span>' + b.name + "</button>";
+    }).join("");
+    panel("Заготовка",
+      'Выберите изделие из обожжённой глины.<span class="hint-more"> Вы его распишете, покроете глазурью и обожжёте в печи.</span>',
+      '<div class="row row-blanks">' + chips + "</div>" +
+      '<button class="btn btn-glaze" type="button" id="toDecor">Расписать <span class="ico ico-arrow" aria-hidden="true"></span></button>', "pick");
+    ui.controls.querySelectorAll("[data-blank]").forEach(function (c) {
+      c.addEventListener("click", function () {
+        ui.controls.querySelectorAll("[data-blank]").forEach(function (x) { x.setAttribute("aria-pressed", x === c ? "true" : "false"); });
+        swapBlank(c.dataset.blank);
+      });
+    });
+    // пока заготовка меняется, нажатие «Расписать» ждёт, когда новая встанет на турнетку
+    document.getElementById("toDecor").addEventListener("click", function () { if (state === "pick") startPaint(); else pickGo = true; });
+    if (drop) dropIn();
+    save();
+  }
+  function dropIn(done) {
+    piece.position.y = 4;
+    tween(0.55, function (k) { piece.position.y = 4 * (1 - easeOut(k)); }, done);
+  }
+  function swapBlank(id) {
+    if (state !== "pick" && state !== "swap") return;
+    if (state === "pick" && blank.id === id) return;
+    state = "swap";
+    tweens.length = 0;
+    var y0 = piece.position.y;
+    tween(0.28, function (k) { piece.position.y = lerp(y0, 4, k * k); }, function () {
+      setBlank(id); matBisque(); skinBlank(); blankStage("pick");
+      spinGoal = blank.spin ? 0.6 : 0;
+      dropIn(function () {
+        state = "pick"; save();
+        if (pickGo) startPaint();
+      });
+    });
+  }
+  // Глина заготовки: белая, с мелкой крапкой; на телах вращения едва видны кольца от токарного станка
+  function skinBlank() {
+    skin.globalAlpha = 1;
+    skin.fillStyle = blank.base || CLAY_D; skin.fillRect(0, 0, SKIN, SKIN);
+    if (blank.wrap) { skin.globalAlpha = .06; skin.drawImage(streakCv, 0, 0, SKIN, SKIN); }
+    skin.globalAlpha = .4;
+    for (var i = 0; i < 2400; i++) {
+      skin.fillStyle = Math.random() < .5 ? "#cdb59f" : "#fbf6f0";
+      skin.fillRect(rand(0, SKIN), rand(0, SKIN), rand(1, 2.2), rand(1, 2.2));
+    }
+    skin.globalAlpha = 1;
+    skinTex.needsUpdate = true;
   }
 
   /* ---------- 1. ком */
@@ -671,8 +1066,8 @@
   var TMAX = 1250;
   function startFire() {
     state = "transfer"; grab(false); finger.visible = false; tip("");
-    setStep("fire");
-    panel("Глазурь и обжиг", "Покрываем вазу прозрачной глазурью и переносим в печь…", "");
+    setStep("fire"); blankStage("fire");
+    panel("Глазурь и обжиг", "Покрываем " + (blank ? blank.acc : "вазу") + " прозрачной глазурью и переносим в печь…", "");
     spinGoal = 0;
     save();
     tween(0.6, function (k) { piece.position.y = easeInOut(k) * 5.5; }, function () {
@@ -801,12 +1196,18 @@
       clayMat.bumpScale = lerp(2.3, .5, e);
     }, function () { matBisque(); startPaint(); save(); });
   }
-  var paint = { color: "#2b1c30", size: 0.05, tool: "brush", last: null, snapped: false };
+  // тонкая кисть — 0.04: на телефоне палец и так закрывает мазок, линия должна выходить тонкой
+  var paint = { color: "#2b1c30", size: 0.04, tool: "brush", last: null, snapped: false };
   var PALETTE = [
     ["#2b1c30", "Аубергин (чёрный ангоб)"], ["#9e4b35", "Терракота"], ["#c8352b", "Красный"], ["#d6a23e", "Охра"],
     ["#3d8c4f", "Зелёный"], ["#3fc1c9", "Бирюза"], ["#8f7fd0", "Лаванда"], ["#f6efe7", "Белый ангоб"]
   ];
-  var ORNAMENTS = [["meander", "Греческий меандр"], ["chuvash", "Чувашский орнамент"], ["wave", "Узор «Волна»"], ["dots", "Узор «Точки»"]];
+  // Заготовки из белой глины: белый ангоб на них не виден, вместо него кобальт, как в гжели
+  var PALETTE_D = [
+    ["#2b1c30", "Аубергин (чёрный)"], ["#2f55a4", "Кобальт"], ["#3fc1c9", "Бирюза"], ["#3d8c4f", "Зелёный"],
+    ["#d6a23e", "Охра"], ["#c8352b", "Красный"], ["#9e4b35", "Терракота"], ["#8f7fd0", "Лаванда"]
+  ];
+  var ORNAMENTS = [["meander", "Греческий меандр", "Меандр"], ["chuvash", "Чувашский орнамент", "Чувашский"], ["wave", "Узор «Волна»", "Волна"], ["dots", "Узор «Точки»", "Точки"]];
 
   // «Назад» в росписи: перед каждым действием (мазок, пояс, смывка) кладём снимок росписи в стек.
   // Снимки — отдельные холсты из пула, чтобы не создавать по 4 МБ на каждый мазок.
@@ -824,6 +1225,7 @@
   function undoPaint() {
     var c = undoStack.pop();
     if (!c || state !== "paint") return;
+    txt.on = false; // надпись, которую ещё двигали, уходит вместе со снимком под ней
     copySkin(skinCv, c);
     skinTex.needsUpdate = true;
     undoPool.push(c);
@@ -833,32 +1235,320 @@
   function clearUndo() { while (undoStack.length) undoPool.push(undoStack.pop()); updateUndo(); }
   function updateUndo() { var b = document.getElementById("undo"); if (b) b.disabled = !undoStack.length; }
   document.addEventListener("keydown", function (e) {
+    if (e.target && e.target.tagName === "INPUT") return; // в поле надписи Ctrl+Z правит сам текст
     if (state === "paint" && (e.ctrlKey || e.metaKey) && !e.shiftKey && e.code === "KeyZ") { e.preventDefault(); undoPaint(); }
   });
 
+  /* Надпись на заготовке. Пока её двигают, она «плавает» над росписью (txt.base — роспись под ней) в пунктирной рамке.
+     Закрепляется, когда берут другой инструмент, начинают следующую надпись или несут изделие в печь. */
+  var FONTS = [["Bad Script", "400", "рукописный"], ["Ledger", "400", "антиква"], ["Golos Text", "600", "простой"]];
+  var TXT_DEFAULT = "С любовью";
+  // arc — надпись дугой: на тарелке она идёт по кругу вокруг центра, на остальных изделиях выгибается аркой
+  var txt = { on: false, touched: false, str: TXT_DEFAULT, u: .5, v: .5, size: .26, font: 0, rot: 0, arc: false, base: null };
+  var TF = 120; // кегль, которым буквы рисуются, а потом масштабируются до мирового размера
+  function txtFont(px) { var f = FONTS[txt.font]; return f[1] + " " + px + 'px "' + f[0] + '"'; }
+  function txtDraw(outline) {
+    copySkin(skinCv, txt.base);
+    var str = txt.str.trim();
+    if (str) {
+      skin.save();
+      skin.font = txtFont(TF);
+      skin.textAlign = "center"; skin.textBaseline = "alphabetic";
+      skin.fillStyle = paint.color;
+      var m = skin.measureText(str);
+      var M = { w: m.width, asc: m.actualBoundingBoxAscent || TF * .7, desc: m.actualBoundingBoxDescent || TF * .2 };
+      M.mid = (M.asc - M.desc) / 2; // сдвиг базовой линии: середина букв ложится точно на точку надписи
+      if (txt.arc && blank.kind === "disc") txtRing(str, M, outline); else txtLine(str, M, outline);
+      skin.restore();
+    }
+    skinTex.needsUpdate = true;
+  }
+  // Прямая надпись или арка. Буквы рисуются в мировых единицах: на развёртке их растягивает так же, как саму поверхность.
+  function txtLine(str, M, outline) {
+    var h = txt.size, w = M.w;
+    // не длиннее окружности изделия, ширины тарелки или картины
+    var lim = blank.kind === "disc" ? blank.D * .85 : blank.bandLen(txt.v) * (blank.wrap ? .9 : .95);
+    if (w / TF * h > lim) h = lim * TF / w;
+    var sx = pxU(txt.v) * h / TF, sy = pxV(txt.v) * h / TF;
+    var x = txt.u * SKIN, y = (1 - txt.v) * SKIN;
+    // арка охватывает ~100°: на выпуклом боку изделия круче она уже не читается; её середина по высоте — в точке надписи
+    var span = 1.75, R = w / span, sag = R * (1 - Math.cos(span / 2)), cy = R - sag / 2;
+    (blank.wrap ? [-SKIN, 0, SKIN] : [0]).forEach(function (o) {
+      skin.save();
+      skin.translate(x + o, y);
+      // тарелка вращается в своей плоскости: надпись разворачиваем так, чтобы она стояла ровно к зрителю
+      if (blank.kind === "disc") skin.rotate(txt.rot);
+      skin.scale(sx, sy);
+      if (txt.arc) {
+        var acc = 0;
+        for (var i = 0; i < str.length; i++) {
+          var cw = skin.measureText(str[i]).width, a = -Math.PI / 2 - span / 2 + (acc + cw / 2) / R;
+          acc += cw;
+          skin.save();
+          skin.translate(R * Math.cos(a), cy + R * Math.sin(a)); skin.rotate(a + Math.PI / 2);
+          skin.fillText(str[i], 0, M.mid);
+          skin.restore();
+        }
+      } else skin.fillText(str, 0, M.mid);
+      if (outline) {
+        var pad = TF * .14, hw = txt.arc ? R * Math.sin(span / 2) + TF * .4 : w / 2;
+        var top = txt.arc ? -sag / 2 + M.mid - M.asc : M.mid - M.asc, bottom = txt.arc ? sag / 2 + M.mid + M.desc + TF * .3 : M.mid + M.desc;
+        skin.setLineDash([TF * .14, TF * .09]); skin.lineWidth = TF * .04; skin.strokeStyle = "#3fc1c9";
+        skin.strokeRect(-hw - pad, top - pad, 2 * hw + 2 * pad, bottom - top + 2 * pad);
+      }
+      skin.restore();
+    });
+  }
+  // Надпись по кругу тарелки: центр дуги — центр тарелки, радиус и место — там, где надпись поставили.
+  // Наверху (как видит зритель) буквы смотрят к краю, внизу — к центру: и там и там текст читается слева направо.
+  function txtRing(str, M, outline) {
+    var s = SKIN / blank.D, cx = SKIN / 2, cy = SKIN / 2, x = txt.u * SKIN, y = (1 - txt.v) * SKIN;
+    var rpx = Math.max(Math.hypot(x - cx, y - cy), .3 * s);
+    var k = txt.size * s / TF, span = M.w * k / rpx;
+    if (span > 5.6) { k *= 5.6 / span; span = 5.6; } // не больше ~320° — концы не наезжают друг на друга
+    var phi = Math.atan2(y - cy, x - cx), up = Math.sin(phi - txt.rot) < 0, acc = 0;
+    for (var i = 0; i < str.length; i++) {
+      var cw = skin.measureText(str[i]).width, off = (acc + cw / 2) * k / rpx;
+      acc += cw;
+      var a = up ? phi - span / 2 + off : phi + span / 2 - off;
+      skin.save();
+      skin.translate(cx + rpx * Math.cos(a), cy + rpx * Math.sin(a));
+      skin.rotate(up ? a + Math.PI / 2 : a - Math.PI / 2);
+      skin.scale(k, k);
+      skin.fillText(str[i], 0, M.mid);
+      skin.restore();
+    }
+    if (outline) {
+      var band = (M.asc + M.desc) / 2 * k + 8, gap = .06;
+      skin.setLineDash([16, 10]); skin.lineWidth = 4.5; skin.strokeStyle = "#3fc1c9";
+      skin.beginPath();
+      skin.arc(cx, cy, rpx + band, phi - span / 2 - gap, phi + span / 2 + gap);
+      skin.arc(cx, cy, Math.max(4, rpx - band), phi + span / 2 + gap, phi - span / 2 - gap, true);
+      skin.closePath(); skin.stroke();
+    }
+  }
+  // Дугу на тарелке включили, а надпись стоит у центра — переносим её к краю, наверх (как видит зритель)
+  function txtToRim() {
+    var r = Math.hypot(txt.u - .5, txt.v - .5) * blank.D;
+    if (r > .5) return;
+    var th = txt.rot = clay.rotation.y % (Math.PI * 2);
+    txt.u = .5 + .86 * Math.sin(th) / blank.D; txt.v = .5 + .86 * Math.cos(th) / blank.D;
+  }
+  function txtStart() {
+    if (txt.on || !blank || !txt.str.trim()) return;
+    snapSkin(); // «Назад» убирает надпись целиком
+    if (!txt.base) txt.base = makeCanvas(SKIN, SKIN);
+    copySkin(txt.base, skinCv);
+    txt.on = true; txt.touched = false;
+    txtAnchor();
+    txtDraw(true);
+  }
+  // Точка посередине видимой стороны изделия: туда встаёт новая надпись и символ, поставленный с клавиатуры
+  function viewUV() {
+    tmp.set(piece.position.x, piece.position.y + blank.textY, piece.position.z).project(camera);
+    raycaster.setFromCamera(new V2(tmp.x, tmp.y), camera);
+    var hit = raycaster.intersectObject(clay, false)[0];
+    return hit && hit.uv ? hit.uv.clone() : null;
+  }
+  function txtAnchor() {
+    txt.rot = clay.rotation.y % (Math.PI * 2);
+    var uv = viewUV();
+    if (uv) { txt.u = uv.x; txt.v = uv.y; }
+    if (txt.arc && blank.kind === "disc") txtToRim();
+  }
+  // Надпись едет за пальцем по изделию
+  function txtMove(uv) {
+    if (!txt.on) txtStart();
+    if (!txt.on) { tip("Сначала напишите текст в поле"); return; }
+    var u = blank.wrap ? uv.x : clamp(uv.x, .04, .96), v = clamp(uv.y, .04, .96);
+    if (Math.abs(u - txt.u) + Math.abs(v - txt.v) < 1e-4) return;
+    txt.u = u; txt.v = v; txt.rot = clay.rotation.y % (Math.PI * 2);
+    txt.touched = true;
+    txtDraw(true);
+    paint.changed = true;
+  }
+  function txtCommit() {
+    if (!txt.on) return;
+    txtDraw(false);
+    txt.on = false;
+    // пустая надпись — пустой шаг в «Назад», его убираем
+    if (!txt.str.trim()) { var c = undoStack.pop(); if (c) undoPool.push(c); updateUndo(); }
+    saveSoon();
+  }
+  // заглянули в «Текст» и ушли, ничего не тронув: «С любовью» не остаётся ни на изделии, ни в «Назад»
+  function txtCancel() {
+    if (!txt.on) return;
+    copySkin(skinCv, txt.base); skinTex.needsUpdate = true;
+    txt.on = false;
+    var c = undoStack.pop(); if (c) undoPool.push(c);
+    updateUndo();
+  }
+  function txtLeave() { if (txt.touched) txtCommit(); else txtCancel(); }
+  function txtSize(k) {
+    txt.size = clamp(txt.size * k, .1, .7);
+    if (txt.on) txtDraw(true); else txtStart();
+    txt.touched = true;
+  }
+  // Шрифт мог ещё не прийти (кириллица грузится отдельным файлом) — перерисуем, когда придёт
+  function fontReady() {
+    var f = txtFont(TF), probe = txt.str.trim() || "Аа";
+    if (!document.fonts || !document.fonts.load || document.fonts.check(f, probe)) return;
+    document.fonts.load(f, probe).then(function () { if (txt.on) txtDraw(true); });
+  }
+
+  /* Символы-штампы для заготовок: ставятся касанием туда, куда нажали, цветом из палитры.
+     Каждый рисуется в квадрате от −1 до 1 (ось y вниз); светлые блики — полупрозрачным белым поверх цвета. */
+  var HI = "rgba(255,255,255,.5)", TAU = Math.PI * 2;
+  function dot(g, x, y, r) { g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill(); }
+  var SYMBOLS = [
+    ["heart", "Сердечко", function (g) {
+      g.beginPath(); g.moveTo(0, .9); g.bezierCurveTo(-1.3, .02, -.82, -1.02, 0, -.4); g.bezierCurveTo(.82, -1.02, 1.3, .02, 0, .9); g.fill();
+    }],
+    ["star", "Звёздочка", function (g) {
+      g.beginPath();
+      for (var i = 0; i < 10; i++) { var r = i % 2 ? .42 : 1, a = -Math.PI / 2 + i * Math.PI / 5; g.lineTo(r * Math.cos(a), r * Math.sin(a) + .08); }
+      g.closePath(); g.fill();
+    }],
+    ["leaf", "Листик", function (g) {
+      g.rotate(-.55);
+      g.beginPath(); g.moveTo(0, -1); g.quadraticCurveTo(.78, -.1, 0, .82); g.quadraticCurveTo(-.78, -.1, 0, -1); g.fill();
+      g.lineWidth = .09; g.lineCap = "round"; g.beginPath(); g.moveTo(0, .7); g.lineTo(0, 1.05); g.stroke();
+      g.strokeStyle = HI; g.lineWidth = .06; g.beginPath(); g.moveTo(0, .66); g.lineTo(0, -.75); g.stroke();
+    }],
+    ["sun", "Солнышко", function (g) {
+      dot(g, 0, 0, .46);
+      g.lineWidth = .13; g.lineCap = "round";
+      for (var k = 0; k < 8; k++) { var a = k * Math.PI / 4; g.beginPath(); g.moveTo(.63 * Math.cos(a), .63 * Math.sin(a)); g.lineTo(.96 * Math.cos(a), .96 * Math.sin(a)); g.stroke(); }
+    }],
+    ["flower", "Цветок", function (g) {
+      for (var k = 0; k < 5; k++) { g.save(); g.rotate(k * TAU / 5); g.beginPath(); g.ellipse(0, -.5, .3, .47, 0, 0, TAU); g.fill(); g.restore(); }
+      g.fillStyle = HI; dot(g, 0, 0, .2);
+    }],
+    ["snow", "Снежинка", function (g) {
+      g.lineWidth = .1; g.lineCap = "round";
+      for (var k = 0; k < 6; k++) {
+        g.save(); g.rotate(k * Math.PI / 3);
+        g.beginPath(); g.moveTo(0, 0); g.lineTo(0, -.98);
+        g.moveTo(0, -.5); g.lineTo(-.24, -.74); g.moveTo(0, -.5); g.lineTo(.24, -.74);
+        g.moveTo(0, -.24); g.lineTo(-.15, -.4); g.moveTo(0, -.24); g.lineTo(.15, -.4);
+        g.stroke(); g.restore();
+      }
+    }],
+    ["moon", "Месяц", function (g) {
+      // часть круга r = 0.9, не закрытая кругом r = 0.78 со сдвигом 0.38 (точки пересечения посчитаны заранее)
+      g.rotate(-.35);
+      g.beginPath(); g.arc(0, 0, .9, 1.04, TAU - 1.04); g.arc(.38, 0, .78, TAU - 1.475, 1.475, true); g.closePath(); g.fill();
+    }],
+    ["cherry", "Вишенки", function (g) {
+      g.lineWidth = .08; g.lineCap = "round";
+      g.beginPath(); g.moveTo(-.42, .3); g.quadraticCurveTo(-.26, -.4, .12, -.82); g.moveTo(.38, .38); g.quadraticCurveTo(.3, -.3, .12, -.82); g.stroke();
+      dot(g, -.42, .55, .32); dot(g, .38, .62, .32);
+      g.beginPath(); g.ellipse(.42, -.78, .3, .13, -.4, 0, TAU); g.fill();
+      g.fillStyle = HI; dot(g, -.52, .45, .07); dot(g, .28, .52, .07);
+    }],
+    ["cloud", "Облачко", function (g) {
+      dot(g, -.48, .15, .36); dot(g, .02, -.12, .5); dot(g, .52, .16, .36);
+      g.fillRect(-.48, .15, 1, .36);
+    }],
+    ["butterfly", "Бабочка", function (g) {
+      [-1, 1].forEach(function (s) {
+        g.beginPath(); g.ellipse(s * .45, -.3, .44, .36, -s * .5, 0, TAU); g.fill();
+        g.beginPath(); g.ellipse(s * .33, .38, .3, .27, s * .5, 0, TAU); g.fill();
+      });
+      g.beginPath(); g.ellipse(0, .05, .09, .6, 0, 0, TAU); g.fill();
+      g.lineWidth = .06; g.lineCap = "round";
+      g.beginPath(); g.moveTo(-.04, -.5); g.quadraticCurveTo(-.15, -.85, -.32, -.92); g.moveTo(.04, -.5); g.quadraticCurveTo(.15, -.85, .32, -.92); g.stroke();
+      g.fillStyle = HI; dot(g, -.5, -.32, .12); dot(g, .5, -.32, .12);
+    }],
+    ["bird", "Птичка", function (g) {
+      g.beginPath(); g.ellipse(-.08, .15, .58, .4, -.15, 0, TAU); g.fill();
+      dot(g, .45, -.22, .27);
+      g.beginPath(); g.moveTo(.68, -.3); g.lineTo(.98, -.18); g.lineTo(.68, -.1); g.closePath(); g.fill();
+      g.beginPath(); g.moveTo(-.55, .05); g.lineTo(-1, -.3); g.lineTo(-.92, .3); g.closePath(); g.fill();
+      g.fillStyle = HI;
+      g.beginPath(); g.ellipse(-.15, .05, .32, .16, -.3, 0, TAU); g.fill();
+      dot(g, .5, -.27, .055);
+    }],
+    ["face", "Личико", function (g) {
+      // для неваляшки и матрёшки: глаза, улыбка, румяные щёки
+      g.lineWidth = .07; g.lineCap = "round";
+      g.beginPath(); g.arc(0, 0, .95, 0, TAU); g.stroke();
+      g.beginPath(); g.ellipse(-.33, -.15, .09, .13, 0, 0, TAU); g.fill();
+      g.beginPath(); g.ellipse(.33, -.15, .09, .13, 0, 0, TAU); g.fill();
+      g.beginPath(); g.arc(0, .1, .36, .2 * Math.PI, .8 * Math.PI); g.stroke();
+      g.globalAlpha *= .35; dot(g, -.58, .22, .16); dot(g, .58, .22, .16);
+    }]
+  ];
+  var sym = { id: "heart", size: .17, icons: null };
+  function symDraw(id) { for (var i = 0; i < SYMBOLS.length; i++) if (SYMBOLS[i][0] === id) return SYMBOLS[i][2]; }
+  // значки для кнопок: белый силуэт, кнопка красит его своим цветом через маску (как остальные иконки)
+  function symIcons() {
+    if (sym.icons) return sym.icons;
+    sym.icons = {};
+    SYMBOLS.forEach(function (s) {
+      var c = makeCanvas(64, 64), g = c.getContext("2d");
+      g.fillStyle = g.strokeStyle = "#fff"; g.translate(32, 32); g.scale(27, 27);
+      s[2](g);
+      sym.icons[s[0]] = c.toDataURL();
+    });
+    return sym.icons;
+  }
+  function stampAt(uv) {
+    var h = sym.size, sx = pxU(uv.y) * h, sy = pxV(uv.y) * h, x = uv.x * SKIN, y = (1 - uv.y) * SKIN, draw = symDraw(sym.id);
+    (wraps() ? [-SKIN, 0, SKIN] : [0]).forEach(function (o) {
+      skin.save();
+      skin.fillStyle = skin.strokeStyle = paint.color; skin.globalAlpha = .95;
+      skin.translate(x + o, y);
+      // на вращающейся тарелке символ встаёт ровно к зрителю, как надпись
+      if (blank.kind === "disc") skin.rotate(clay.rotation.y % TAU);
+      skin.scale(sx, sy);
+      draw(skin);
+      skin.restore();
+    });
+    skinTex.needsUpdate = true;
+  }
+
   function startPaint() {
+    var D = mode === "decor"; // роспись заготовки: своя палитра, надпись, у картины нет вращения
     state = "paint"; grab(true);
-    tip("Коснитесь вазы кистью");
-    setStep("paint");
-    spinGoal = 1.0;
-    paint.color = PALETTE[0][0]; paint.size = 0.05; paint.tool = "brush"; paint.last = null;
-    var sw = PALETTE.map(function (p, i) {
+    tip(D ? "Коснитесь " + blank.gen + " кистью" : "Коснитесь вазы кистью");
+    setStep("paint"); blankStage("paint");
+    spinGoal = D && !blank.spin ? 0 : 1.0;
+    var pal = D ? PALETTE_D : PALETTE;
+    paint.color = pal[0][0]; paint.size = 0.04; paint.tool = "brush"; paint.last = null;
+    txt.on = false; txt.str = TXT_DEFAULT; txt.arc = false;
+    var sw = pal.map(function (p, i) {
       return '<button class="swatch" type="button" style="--c:' + p[0] + '" data-color="' + p[0] + '" aria-label="' + p[1] + '" title="' + p[1] + '" aria-pressed="' + (i === 0) + '"></button>';
     }).join("");
+    // у заготовок к кистям добавляется «Текст», поэтому подписи орнаментов короче: панель не должна расти
     var orn = ORNAMENTS.map(function (o) {
-      return '<button class="chip" type="button" data-orn="' + o[0] + '" aria-pressed="false"><span class="orn-ico orn-' + o[0] + '" aria-hidden="true"></span>' + o[1] + "</button>";
+      return '<button class="chip" type="button" data-orn="' + o[0] + '" aria-pressed="false"' + (D ? ' title="' + o[1] + '"' : "") + '><span class="orn-ico orn-' + o[0] + '" aria-hidden="true"></span>' + (D ? o[2] : o[1]) + "</button>";
     }).join("");
+    // Надпись и символы — только у заготовок: их строка появляется под инструментами, когда выбран «Текст» или «Символы»
+    var sq = function (id, title, inner) { return '<button class="chip chip-sq" type="button" id="' + id + '" title="' + title + '" aria-label="' + title + '">' + inner + "</button>"; };
+    var textChip = D ? '<button class="chip" type="button" data-tool="text" aria-pressed="false"><span class="ico ico-text" aria-hidden="true"></span><span class="lbl">Текст</span></button>' +
+      '<button class="chip" type="button" data-tool="sym" aria-pressed="false"><span class="ico ico-sym" aria-hidden="true"></span>Символы</button>' : "";
+    var subRows = D ? '<div class="row row-text" id="textRow" hidden>' +
+      '<input class="text-in" id="textIn" type="text" maxlength="28" aria-label="Текст надписи" enterkeyhint="done" autocomplete="off" spellcheck="false">' +
+      '<button class="chip chip-sq" type="button" id="textFont"><span class="font-aa" aria-hidden="true">Аа</span></button>' +
+      '<button class="chip chip-sq" type="button" id="textArc" aria-pressed="false" title="' + (blank.kind === "disc" ? "Надпись по кругу тарелки" : "Надпись дугой") + '" aria-label="' + (blank.kind === "disc" ? "Надпись по кругу тарелки" : "Надпись дугой") + '"><span class="ico ico-arc" aria-hidden="true"></span></button>' +
+      sq("textSmall", "Мельче", '<span class="ico ico-minus" aria-hidden="true"></span>') +
+      sq("textBig", "Крупнее", '<span class="ico ico-plus" aria-hidden="true"></span>') + "</div>" +
+      '<div class="row row-sym" id="symRow" hidden>' +
+      SYMBOLS.map(function (s) { return '<button class="chip chip-sq" type="button" data-sym="' + s[0] + '" title="' + s[1] + '" aria-label="' + s[1] + '" aria-pressed="' + (s[0] === sym.id) + '"><span class="ico" aria-hidden="true"></span></button>'; }).join("") +
+      sq("symSmall", "Символ мельче", '<span class="ico ico-minus" aria-hidden="true"></span>') +
+      sq("symBig", "Символ крупнее", '<span class="ico ico-plus" aria-hidden="true"></span>') + "</div>" : "";
     // На телефоне инструменты — одна строка с прокруткой вбок (.tools), чтобы панель не съедала место у вазы
     panel("Роспись",
-      'Коснитесь вазы — круг проведёт поясок.<span class="hint-more"> Орнамент ляжет туда, куда вы нажмёте.</span>',
+      D ? blank.paintHint : 'Коснитесь вазы — круг проведёт поясок.<span class="hint-more"> Орнамент ляжет туда, куда вы нажмёте.</span>',
       '<p class="label">Цвет</p><div class="row row-swatches">' + sw + "</div>" +
-      '<div class="tools"><p class="label">Кисть и орнамент</p><div class="row">' +
-      '<button class="chip" type="button" data-size="0.05" aria-pressed="true">Тонкая кисть</button>' +
-      '<button class="chip" type="button" data-size="0.12" aria-pressed="false">Широкая кисть</button>' + orn + "</div></div>" +
+      '<div class="tools"><p class="label">' + (D ? "Кисть, текст, символы и орнамент" : "Кисть и орнамент") + '</p><div class="row">' +
+      '<button class="chip" type="button" data-size="0.04" aria-pressed="true">Тонкая кисть</button>' +
+      '<button class="chip" type="button" data-size="0.12" aria-pressed="false">Широкая кисть</button>' + textChip + orn + "</div></div>" + subRows +
       '<div class="row row-actions"><button class="btn btn-undo" type="button" id="undo" title="Отменить последнее действие (Ctrl+Z)" disabled><span class="ico ico-undo" aria-hidden="true"></span>Назад</button>' +
       '<button class="btn btn-glaze" type="button" id="toGlaze">Глазуровать и в печь <span class="ico ico-arrow" aria-hidden="true"></span></button></div>', "paint",
       // на виду сразу под заголовком: без них непонятно, что круг можно остановить, а роспись — смыть
-      '<button class="chip chip-tool" type="button" id="spinToggle" aria-pressed="false"><span class="ico ico-pause" aria-hidden="true"></span><span class="lbl">Остановить круг</span></button>' +
+      (D && !blank.spin ? "" : '<button class="chip chip-tool" type="button" id="spinToggle" aria-pressed="false"><span class="ico ico-pause" aria-hidden="true"></span><span class="lbl">Остановить круг</span></button>') +
       '<button class="chip chip-tool" type="button" id="wipe"><span class="ico ico-wipe" aria-hidden="true"></span>Смыть роспись</button>');
     clearUndo();
     var C = ui.controls;
@@ -867,10 +1557,12 @@
       b.addEventListener("click", function () {
         paint.color = b.dataset.color;
         C.querySelectorAll("[data-color]").forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+        if (txt.on) { txt.touched = true; txtDraw(true); }
       });
     });
     function toolBtns(active) {
-      C.querySelectorAll("[data-size],[data-orn]").forEach(function (x) { x.setAttribute("aria-pressed", x === active ? "true" : "false"); });
+      C.querySelectorAll("[data-size],[data-orn],[data-tool]").forEach(function (x) { x.setAttribute("aria-pressed", x === active ? "true" : "false"); });
+      if (D) subMode();
     }
     C.querySelectorAll("[data-size]").forEach(function (b) {
       b.addEventListener("click", function () { paint.size = +b.dataset.size; paint.tool = "brush"; toolBtns(b); });
@@ -879,60 +1571,137 @@
       b.addEventListener("click", function (e) {
         paint.tool = b.dataset.orn; toolBtns(b);
         if (e.detail === 0) { // с клавиатуры: кладём пояс на случайную высоту
-          var v = outerV(Math.floor(rand(.25, .85) * (N - 1)));
           snapSkin();
-          drawBand(paint.tool, v, paint.color);
+          if (D) bandAt(randomBandUV());
+          else drawBand(paint.tool, outerV(Math.floor(rand(.25, .85) * (N - 1))), paint.color);
           saveSoon();
         }
       });
     });
-    document.getElementById("spinToggle").addEventListener("click", function () {
+    var spinBtn = document.getElementById("spinToggle");
+    function setSpin(stopped) {
       // aria-pressed = «круг остановлен»; подпись говорит, что случится по нажатию
-      var stopped = this.getAttribute("aria-pressed") !== "true";
-      this.setAttribute("aria-pressed", stopped ? "true" : "false");
-      this.querySelector(".lbl").textContent = stopped ? "Запустить круг" : "Остановить круг";
-      this.querySelector(".ico").className = "ico " + (stopped ? "ico-play" : "ico-pause");
+      spinBtn.setAttribute("aria-pressed", stopped ? "true" : "false");
+      spinBtn.querySelector(".lbl").textContent = stopped ? "Запустить круг" : "Остановить круг";
+      spinBtn.querySelector(".ico").className = "ico " + (stopped ? "ico-play" : "ico-pause");
       spinGoal = stopped ? 0 : 1.0;
+    }
+    if (spinBtn) spinBtn.addEventListener("click", function () { setSpin(this.getAttribute("aria-pressed") !== "true"); });
+    document.getElementById("wipe").addEventListener("click", function () { txtLeave(); snapSkin(); if (D) skinBlank(); else skinBisque(); saveSoon(); });
+    document.getElementById("toGlaze").addEventListener("click", function () { txtCommit(); startFire(); });
+    if (!D) return;
+
+    // Надпись: поле, шрифт (по кругу из трёх), дуга, мельче/крупнее; двигают пальцем прямо по изделию.
+    // Символы: выбирают значок и ставят касанием, мельче/крупнее.
+    var textRow = document.getElementById("textRow"), symRow = document.getElementById("symRow"), inp = document.getElementById("textIn");
+    var chipT = C.querySelector("[data-tool=text]"), chipS = C.querySelector("[data-tool=sym]"), fontB = document.getElementById("textFont"), arcB = document.getElementById("textArc");
+    inp.value = txt.str;
+    arcB.setAttribute("aria-pressed", txt.arc ? "true" : "false");
+    function subMode() {
+      var t = paint.tool === "text", s = paint.tool === "sym";
+      if (!t) txtLeave();
+      textRow.hidden = !t; symRow.hidden = !s;
+      // пока открыта строка надписи или символов, подписи групп прячутся: строка встаёт на их место, и панель не растёт
+      C.classList.toggle("is-sub", t || s);
+      chipT.querySelector(".lbl").textContent = t ? "Ещё надпись" : "Текст";
+      ui.hint.innerHTML = t ? "Перетащите надпись пальцем по " + blank.dat + "." : s ? "Выберите символ и нажмите на " + blank.acc + "." : blank.paintHint;
+      tip(t ? "Ведите надпись пальцем" : s ? "Нажмите, куда поставить символ" : "");
+      if (!t) return;
+      // по неподвижному изделию надпись вести проще; круг встаёт сразу, чтобы надпись не уехала из-под глаз
+      if (spinBtn) { setSpin(true); spin = 0; }
+      txtStart(); fontReady();
+    }
+    chipT.addEventListener("click", function () {
+      // уже пишем: эта надпись остаётся на изделии, следующую набирают заново
+      if (paint.tool === "text") { txtCommit(); inp.value = txt.str = ""; inp.focus(); return; }
+      paint.tool = "text"; toolBtns(chipT);
     });
-    document.getElementById("wipe").addEventListener("click", function () { snapSkin(); skinBisque(); saveSoon(); });
-    document.getElementById("toGlaze").addEventListener("click", startFire);
+    chipS.addEventListener("click", function () { paint.tool = "sym"; toolBtns(chipS); });
+    var icons = symIcons();
+    symRow.querySelectorAll("[data-sym]").forEach(function (b) {
+      b.querySelector(".ico").style.setProperty("--ic", "url(" + icons[b.dataset.sym] + ")");
+      b.addEventListener("click", function (e) {
+        sym.id = b.dataset.sym;
+        symRow.querySelectorAll("[data-sym]").forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+        if (e.detail === 0) { var uv = viewUV(); if (uv) { snapSkin(); stampAt(uv); saveSoon(); } } // с клавиатуры — посередине видимой стороны
+      });
+    });
+    document.getElementById("symSmall").addEventListener("click", function () { sym.size = clamp(sym.size / 1.2, .08, .45); });
+    document.getElementById("symBig").addEventListener("click", function () { sym.size = clamp(sym.size * 1.2, .08, .45); });
+    arcB.addEventListener("click", function () {
+      txt.arc = !txt.arc;
+      arcB.setAttribute("aria-pressed", txt.arc ? "true" : "false");
+      if (!txt.on) txtStart();
+      if (!txt.on) return;
+      if (txt.arc && blank.kind === "disc") txtToRim();
+      txtDraw(true); txt.touched = true;
+    });
+    inp.addEventListener("input", function () {
+      inp.dataset.touched = "1";
+      txt.str = inp.value;
+      if (txt.on) txtDraw(true); else txtStart();
+      txt.touched = true;
+      fontReady();
+    });
+    // первое касание поля выделяет «С любовью», чтобы сразу писать своё
+    inp.addEventListener("focus", function () { if (!inp.dataset.touched) inp.select(); });
+    inp.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); inp.blur(); } });
+    function fontLabel() {
+      var f = FONTS[txt.font];
+      fontB.querySelector(".font-aa").style.fontFamily = '"' + f[0] + '", serif';
+      fontB.title = "Шрифт: " + f[2] + ". Нажмите, чтобы сменить";
+      fontB.setAttribute("aria-label", fontB.title);
+    }
+    fontLabel();
+    fontB.addEventListener("click", function () {
+      txt.font = (txt.font + 1) % FONTS.length; fontLabel(); fontReady();
+      if (txt.on) txtDraw(true); else txtStart();
+      txt.touched = true;
+    });
+    document.getElementById("textSmall").addEventListener("click", function () { txtSize(1 / 1.2); });
+    document.getElementById("textBig").addEventListener("click", function () { txtSize(1.2); });
   }
 
   function outerV(i) { return (2 + i) / (P - 1); }
   function rAtV(v) { var i = Math.round(v * (P - 1)) - 2; return R[clamp(i, 0, N - 1)]; }
-  function pxU(v) { return SKIN / (2 * Math.PI * Math.max(rAtV(v), .2)); }
-  function pxV() { return SKIN * (N - 1) / ((P - 1) * (H - BASE)); }
+  // Масштаб холста росписи: пикселей на единицу длины вокруг изделия (u) и вдоль профиля (v). У заготовок — свой.
+  function pxU(v) { return blank ? blank.pxU(v) : SKIN / (2 * Math.PI * Math.max(rAtV(v), .2)); }
+  function pxV(v) { return blank ? blank.pxV(v) : SKIN * (N - 1) / ((P - 1) * (H - BASE)); }
+  // тела вращения замкнуты по u; тарелка и картина — плоский лист с краями
+  function wraps() { return !blank || blank.wrap; }
 
   function dab(x, y, rx, ry) {
-    for (var o = -1; o <= 1; o++) {
+    var w = wraps() ? 1 : 0;
+    for (var o = -w; o <= w; o++) {
       var xx = x + o * SKIN;
       if (xx + rx < 0 || xx - rx > SKIN) continue;
       skin.beginPath(); skin.ellipse(xx, y, rx, ry, 0, 0, Math.PI * 2); skin.fill();
     }
   }
   function strokeUV(a, b) {
-    var ux = pxU(b.y), vy = pxV();
-    var rx = paint.size * ux, ry = paint.size * vy;
+    var ux = pxU(b.y), vy = pxV(b.y), wrap = wraps();
+    // у самой оси (центр дна) окружность крошечная, и пятно кисти по u растёт; больше полхолста не бывает
+    var rx = Math.min(paint.size * ux, SKIN / 2), ry = paint.size * vy;
     var du = b.x - a.x;
-    if (du > .5) du -= 1; else if (du < -.5) du += 1;
+    if (wrap) { if (du > .5) du -= 1; else if (du < -.5) du += 1; }
     var x0 = a.x * SKIN, y0 = (1 - a.y) * SKIN, dx = du * SKIN, dy = (a.y - b.y) * SKIN;
     var steps = Math.min(80, Math.ceil(Math.max(Math.abs(dx) / rx, Math.abs(dy) / ry) * 2.5) + 1);
     skin.fillStyle = paint.color; skin.globalAlpha = .92;
     for (var s = 0; s <= steps; s++) {
       var t = s / steps, x = x0 + dx * t;
-      x = ((x % SKIN) + SKIN) % SKIN;
+      if (wrap) x = ((x % SKIN) + SKIN) % SKIN;
       dab(x, y0 + dy * t, rx * rand(.92, 1.05), ry * rand(.92, 1.05));
     }
     skin.globalAlpha = 1;
     skinTex.needsUpdate = true;
   }
 
-  // Орнаментальные пояса: рисуем в мировых единицах, учитывая окружность
+  // Орнаментальные пояса: рисуем в мировых единицах, учитывая окружность (у картины — ширину)
   function drawBand(type, v, color) {
-    var R0 = Math.max(rAtV(v), .2), C = 2 * Math.PI * R0;
+    var C = blank ? blank.bandLen(v) : 2 * Math.PI * Math.max(rAtV(v), .2);
     var bandH = 0.22, cellW = type === "chuvash" ? 0.46 : (type === "dots" ? 0.16 : 0.24);
     var n = Math.max(4, Math.round(C / cellW)); cellW = C / n;
-    var su = SKIN / C, sv = pxV();
+    var su = SKIN / C, sv = pxV(v);
     var cy = (1 - v) * SKIN;
     skin.save();
     skin.fillStyle = color; skin.strokeStyle = color;
@@ -943,52 +1712,95 @@
     for (var k = 0; k < n; k++) {
       skin.save();
       skin.translate(k * cellW, 0);
-      if (type === "meander") {
-        skin.scale(cellW / 28, bandH / 28);
-        skin.lineWidth = 2.8; skin.lineCap = "square";
-        skin.beginPath(); skin.moveTo(21, 24.5); skin.lineTo(21, 5); skin.lineTo(5, 5); skin.lineTo(5, 19); skin.lineTo(15, 19); skin.lineTo(15, 11); skin.lineTo(10, 11);
-        skin.moveTo(0, 24.5); skin.lineTo(28, 24.5);
-        skin.stroke();
-      } else if (type === "chuvash") {
-        skin.scale(cellW / 56, bandH / 28);
-        skin.lineWidth = 2.4;
-        skin.beginPath(); skin.moveTo(14, 4.5); skin.lineTo(23.5, 14); skin.lineTo(14, 23.5); skin.lineTo(4.5, 14); skin.closePath(); skin.stroke();
-        skin.beginPath(); skin.moveTo(14, 9.5); skin.lineTo(18.5, 14); skin.lineTo(14, 18.5); skin.lineTo(9.5, 14); skin.closePath(); skin.fill();
-        skin.fillRect(37, 9, 10, 10);
-        skin.beginPath(); skin.moveTo(42, 6.2); skin.lineTo(49.8, 14); skin.lineTo(42, 21.8); skin.lineTo(34.2, 14); skin.closePath(); skin.fill();
-        skin.lineWidth = 1.8;
-        skin.beginPath(); skin.moveTo(28, 8); skin.lineTo(28, 20); skin.moveTo(26, 10); skin.lineTo(30, 10); skin.moveTo(26, 18); skin.lineTo(30, 18); skin.stroke();
-      } else if (type === "wave") {
-        skin.scale(cellW / 28, bandH / 28);
-        skin.beginPath();
-        skin.moveTo(0, 24); skin.lineTo(0, 18);
-        skin.bezierCurveTo(4, 8, 14, 4, 20, 10);
-        skin.bezierCurveTo(24, 14, 19, 19, 16, 15);
-        skin.bezierCurveTo(14, 12, 20, 11, 21, 15);
-        skin.bezierCurveTo(23, 20, 26, 20, 28, 18);
-        skin.lineTo(28, 24); skin.closePath(); skin.fill();
-      } else {
-        skin.scale(cellW / 16, bandH / 28);
-        skin.beginPath(); skin.ellipse(8, 14, 3.6, 3.6, 0, 0, Math.PI * 2); skin.fill();
-      }
+      bandCell(type, cellW, bandH);
       skin.restore();
     }
     skin.restore();
     skinTex.needsUpdate = true;
+  }
+  // Тарелка: орнамент ложится кольцом вокруг центра, верх узора — к краю
+  function drawRing(type, r, color) {
+    var bandH = 0.2, s = SKIN / blank.D;
+    r = clamp(r, .24, blank.rimR - bandH / 2);
+    var C = 2 * Math.PI * r, cellW = type === "chuvash" ? 0.46 : (type === "dots" ? 0.16 : 0.24);
+    var n = Math.max(8, Math.round(C / cellW)); cellW = C / n;
+    skin.save();
+    skin.fillStyle = color; skin.strokeStyle = color;
+    skin.translate(SKIN / 2, SKIN / 2); skin.scale(s, s);
+    skin.lineWidth = 0.018;
+    [r + bandH / 2 - .009, r - bandH / 2 + .009].forEach(function (rr) { skin.beginPath(); skin.arc(0, 0, rr, 0, Math.PI * 2); skin.stroke(); });
+    for (var k = 0; k < n; k++) {
+      skin.save();
+      skin.rotate(k / n * Math.PI * 2);
+      skin.translate(-cellW / 2, -(r + bandH / 2));
+      bandCell(type, cellW, bandH);
+      skin.restore();
+    }
+    skin.restore();
+    skinTex.needsUpdate = true;
+  }
+  // Орнамент на заготовке там, куда нажали
+  function bandAt(uv) {
+    if (blank.kind === "disc") drawRing(paint.tool, Math.hypot(uv.x - .5, uv.y - .5) * blank.D, paint.color);
+    else drawBand(paint.tool, clamp(uv.y, .04, .96), paint.color);
+  }
+  function randomBandUV() {
+    if (blank.kind === "disc") return new V2(.5 + rand(.12, .4), .5);
+    if (blank.kind === "flat") return new V2(.5, rand(.2, .8));
+    var s = blank.surf;
+    return new V2(.5, lerp(s.o0, s.o1, rand(.25, .85)) / (s.n - 1));
+  }
+  // Одна ячейка орнамента в прямоугольнике cellW × bandH (мировые единицы), верх ячейки — y = 0
+  function bandCell(type, cellW, bandH) {
+    if (type === "meander") {
+      skin.scale(cellW / 28, bandH / 28);
+      skin.lineWidth = 2.8; skin.lineCap = "square";
+      skin.beginPath(); skin.moveTo(21, 24.5); skin.lineTo(21, 5); skin.lineTo(5, 5); skin.lineTo(5, 19); skin.lineTo(15, 19); skin.lineTo(15, 11); skin.lineTo(10, 11);
+      skin.moveTo(0, 24.5); skin.lineTo(28, 24.5);
+      skin.stroke();
+    } else if (type === "chuvash") {
+      skin.scale(cellW / 56, bandH / 28);
+      skin.lineWidth = 2.4;
+      skin.beginPath(); skin.moveTo(14, 4.5); skin.lineTo(23.5, 14); skin.lineTo(14, 23.5); skin.lineTo(4.5, 14); skin.closePath(); skin.stroke();
+      skin.beginPath(); skin.moveTo(14, 9.5); skin.lineTo(18.5, 14); skin.lineTo(14, 18.5); skin.lineTo(9.5, 14); skin.closePath(); skin.fill();
+      skin.fillRect(37, 9, 10, 10);
+      skin.beginPath(); skin.moveTo(42, 6.2); skin.lineTo(49.8, 14); skin.lineTo(42, 21.8); skin.lineTo(34.2, 14); skin.closePath(); skin.fill();
+      skin.lineWidth = 1.8;
+      skin.beginPath(); skin.moveTo(28, 8); skin.lineTo(28, 20); skin.moveTo(26, 10); skin.lineTo(30, 10); skin.moveTo(26, 18); skin.lineTo(30, 18); skin.stroke();
+    } else if (type === "wave") {
+      skin.scale(cellW / 28, bandH / 28);
+      skin.beginPath();
+      skin.moveTo(0, 24); skin.lineTo(0, 18);
+      skin.bezierCurveTo(4, 8, 14, 4, 20, 10);
+      skin.bezierCurveTo(24, 14, 19, 19, 16, 15);
+      skin.bezierCurveTo(14, 12, 20, 11, 21, 15);
+      skin.bezierCurveTo(23, 20, 26, 20, 28, 18);
+      skin.lineTo(28, 24); skin.closePath(); skin.fill();
+    } else {
+      skin.scale(cellW / 16, bandH / 28);
+      skin.beginPath(); skin.ellipse(8, 14, 3.6, 3.6, 0, 0, Math.PI * 2); skin.fill();
+    }
   }
 
   function updatePaint() {
     if (!pointer.down || !pointer.onCanvas) { paint.last = null; return; }
     tip("");
     raycaster.setFromCamera(pointer.ndc, camera);
-    var hit = raycaster.intersectObject(clay, false)[0];
+    // у кружки расписывается и ручка
+    var hit = blank ? raycaster.intersectObjects(blank.targets, false)[0] : raycaster.intersectObject(clay, false)[0];
     if (!hit || !hit.uv) { paint.last = null; return; }
     var uv = hit.uv.clone();
+    if (paint.tool === "text") { pointer.fresh = false; txtMove(uv); return; }
+    if (paint.tool === "sym") {
+      if (pointer.fresh) { snapSkin(); stampAt(uv); paint.changed = true; }
+      pointer.fresh = false;
+      return;
+    }
     if (paint.tool !== "brush") {
       if (pointer.fresh) {
-        var v = clamp(uv.y, outerV(2), outerV(N - 3));
         snapSkin();
-        drawBand(paint.tool, v, paint.color);
+        if (blank) bandAt(uv);
+        else drawBand(paint.tool, clamp(uv.y, outerV(2), outerV(N - 3)), paint.color);
         paint.changed = true;
       }
       pointer.fresh = false;
@@ -1004,29 +1816,48 @@
 
   /* ---------- 5. готово */
   function startDone() {
+    var D = mode === "decor";
     state = "done"; clayMat.emissiveIntensity = 0;
     photo = null;
     focus = "done"; framing("done");
-    setStep("done"); spinGoal = 0.35;
+    setStep("done"); spinGoal = D && !blank.spin ? 0 : 0.35;
+    blankStage("done");
     // кнопка записи появляется только сейчас: на ПК — под аркой, на телефоне — в панели (.game-cta), чтобы не уходить за край экрана
     heroEl.classList.add("cta-on");
     var cta = heroEl.querySelector(".hero-cta");
-    // «Сохранить фото» — заметная кнопка с мягкой пульсацией, чтобы её не пропустили; «Поделиться» — там, где браузер умеет отправлять файлы
+    // «Сохранить фото» — заметная кнопка с мягкой пульсацией, чтобы её не пропустили; «Поделиться» — там, где браузер умеет отправлять файлы.
+    // Рядом — второе занятие: после круга можно расписать заготовку, после росписи — слепить на круге.
     panel("Готово!",
-      'Ваза обожжена и сияет глазурью. Настоящую слепите в «Сенсорике»!<span class="hint-more"> Она будет тяжёлой, тёплой и только вашей.</span>',
+      D ? blank.done : 'Ваза обожжена и сияет глазурью. Настоящую слепите в «Сенсорике»!<span class="hint-more"> Она будет тяжёлой, тёплой и только вашей.</span>',
       '<div class="row"><button class="btn btn-save" type="button" id="savePic"><span class="ico ico-camera" aria-hidden="true"></span>Сохранить фото</button>' +
       (CAN_SHARE ? '<button class="btn btn-share" type="button" id="sharePic"><span class="ico ico-share" aria-hidden="true"></span>Поделиться</button>' : "") +
-      '<button class="chip" type="button" id="again">Слепить ещё</button></div>' +
+      '<button class="chip" type="button" id="again">' + (D ? "Расписать ещё" : "Слепить ещё") + "</button>" +
+      '<button class="chip" type="button" id="other">' + (D ? "Слепить на круге" : "Расписать изделие") + "</button></div>" +
       (cta ? '<a class="btn btn-glaze game-cta" href="' + cta.href + '" target="_blank" rel="noopener">Записаться в мастерскую</a>' : ""), "done");
     document.getElementById("savePic").addEventListener("click", savePicture);
     if (CAN_SHARE) document.getElementById("sharePic").addEventListener("click", sharePicture);
-    document.getElementById("again").addEventListener("click", restart);
+    document.getElementById("again").addEventListener("click", D ? againDecor : restart);
+    document.getElementById("other").addEventListener("click", function () { switchTo(D ? "wheel" : "decor"); });
+  }
+  // «Расписать ещё»: на турнетку встаёт чистая заготовка того же вида, её можно сменить
+  function againDecor() {
+    resetPlay();
+    startPick(true);
+    save();
+  }
+  // Со страницы «Готово» — сразу во второе занятие, минуя выбор
+  function switchTo(m) {
+    resetPlay();
+    if (m === "wheel") { setMode("wheel"); startLump(); }
+    else { setMode("decor"); setBlank(BLANK_ORDER[0]); startPick(true); }
+    save();
   }
   // Открытка с готовой вазой 1080×1350. «Сохранить фото»: на iPhone и iPad — через меню «Поделиться» (в фото оттуда сохраняет
   // только «Сохранить изображение»), на Android и компьютере — файлом, на Android он появляется в галерее.
   // «Поделиться» отправляет саму картинку в мессенджер или соцсеть.
   var IOS = /iP(hone|od|ad)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   var PHOTO_NAME = "moya-vaza-sensorika.jpg";
+  function photoName() { return mode === "decor" ? blank.file : PHOTO_NAME; }
   var CAN_SHARE = (function () {
     try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File([""], PHOTO_NAME, { type: "image/jpeg" })] })); }
     catch (e) { return false; }
@@ -1058,7 +1889,7 @@
     g.fillStyle = "#1f1424"; g.fillRect(0, bandY + bh, W, H - bandY - bh);
     g.textAlign = "center"; g.fillStyle = "#f6decf";
     g.font = "64px Ledger, Forum, serif";
-    g.fillText("МОЯ ПЕРВАЯ ВАЗА", W / 2, 110);
+    g.fillText(mode === "decor" ? blank.card : "МОЯ ПЕРВАЯ ВАЗА", W / 2, 110);
     // Контакты мастерской под поясом: логотип, название, адрес и телефон из data/site.js
     var st = (window.SITE && window.SITE.studio) || {};
     var logo = document.querySelector(".brand-mark"), fy = bandY + bh, tx = 72;
@@ -1089,7 +1920,7 @@
     var p = photo = { card: renderPostcard(), file: null, ready: [] };
     p.card.toBlob(function (blob) {
       if (!blob) { if (photo === p) photo = null; return; }
-      p.file = new File([blob], PHOTO_NAME, { type: "image/jpeg" });
+      p.file = new File([blob], photoName(), { type: "image/jpeg" });
       p.ready.forEach(function (f) { f(p.file); });
       p.ready.length = 0;
     }, "image/jpeg", 0.92);
@@ -1098,7 +1929,7 @@
   function withFile(cb) { var p = postcard(); if (p.file) cb(p.file); else p.ready.push(cb); }
   function download(blob) {
     var a = document.createElement("a");
-    a.download = PHOTO_NAME;
+    a.download = photoName();
     a.href = URL.createObjectURL(blob);
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
@@ -1163,6 +1994,9 @@
     setPointer(e);
     pointer.onCanvas = true;
     markPlaying();
+    // набрали надпись и взялись двигать её по изделию: клавиатура телефона прячется и не закрывает арку
+    var ae = document.activeElement;
+    if (ae && ae.tagName === "INPUT" && ui.controls.contains(ae)) ae.blur();
     if (interactive() || state === "lump" || state === "fire") {
       pointer.down = true; pointer.fresh = true;
       if (interactive()) canvas.setPointerCapture(e.pointerId);
@@ -1214,9 +2048,23 @@
     spin += (spinGoal - spin) * Math.min(1, dt * 2.5);
     var dA = spin * dt;
     wheelHead.rotation.y += dA;
-    if (state !== "transfer" && state !== "cooling" && state !== "fire" && state !== "cracked") clay.rotation.y += dA;
+    // картина стоит на подставке и не вращается
+    if (state !== "transfer" && state !== "cooling" && state !== "fire" && state !== "cracked" && !(blank && !blank.spin)) clay.rotation.y += dA;
 
     if (dirty) rebuild();
+
+    if (blank) {
+      // бока картины повторяют глину лицевой стороны: обжиг, свечение, глазурь
+      if (blank.kind === "flat") {
+        edgeMat.roughness = clayMat.roughness; edgeMat.clearcoat = clayMat.clearcoat;
+        edgeMat.clearcoatRoughness = clayMat.clearcoatRoughness; edgeMat.emissiveIntensity = clayMat.emissiveIntensity;
+      }
+      if (blank.flame && blank.flame.visible) {
+        var fl = Math.sin(time * 11) * .5 + Math.sin(time * 27 + 1.3) * .3;
+        candleLight.intensity = 2.4 + fl * .5;
+        blank.flame.scale.set(1 - fl * .06, 2.2 + fl * .25, 1 - fl * .06);
+      }
+    }
 
     flames.forEach(function (f) {
       var n = Math.sin(time * 9 + f.seed) * .5 + Math.sin(time * 23 + f.seed * 3) * .3;
@@ -1246,19 +2094,31 @@
   started = true;
 
   function begin() {
-    var demo = (location.search.match(/[?&]demo=(\w+)/) || [])[1];
+    var demo = (location.search.match(/[?&]demo=([\w-]+)/) || [])[1];
     var saved = loadSave();
     var tmp = new Float32Array(N);
-    // ?demo=shape|fire|paint|done — сразу нужный этап (для проверки кадра и скриншотов), без сохранения
-    if (demo === "shape") { placeShape(tmp, presetProfile("jar", tmp)); matWet(); skinNeutral(); startShape(); }
+    var dm = demo && demo.match(/^(pick|paint|fire|done)-(\w+)$/);
+    // ?demo=shape|fire|paint|done — сразу нужный этап круга (для проверки кадра и скриншотов), без сохранения;
+    // ?demo=paint-mug, done-plate… — то же для заготовок (mug, candle, vase, plate, picture); ?demo=lump — сразу ком
+    if (demo === "lump") startLump();
+    else if (demo === "shape") { placeShape(tmp, presetProfile("jar", tmp)); matWet(); skinNeutral(); startShape(); }
     else if (demo === "fire") restore({ step: "fire", R: tmp, H: presetProfile("vase", tmp) });
     else if (demo === "paint") restore({ step: "paint", R: tmp, H: presetProfile("vase", tmp) });
     else if (demo === "done") {
       restore({ step: "done", R: tmp, H: presetProfile("amphora", tmp) });
       drawBand("meander", outerV(30), "#2b1c30"); drawBand("chuvash", outerV(16), "#9e4b35"); drawBand("dots", outerV(38), "#3fc1c9");
     }
-    else if (saved && saved.step !== "lump") restore(saved);
-    else startLump();
+    else if (dm && BLANKS[dm[2]]) {
+      restore({ mode: "decor", blank: dm[2], step: dm[1] });
+      if (dm[1] === "done") {
+        paint.tool = "chuvash"; bandAt(randomBandUV()); paint.tool = "meander"; bandAt(randomBandUV());
+        txt.base = makeCanvas(SKIN, SKIN); copySkin(txt.base, skinCv);
+        txt.u = blank.wrap ? 0 : .5; txt.v = blank.wrap ? vAtY(blank.surf, blank.textY) : .5;
+        txtDraw(false);
+      }
+    }
+    else if (saved && (saved.mode === "decor" || saved.step !== "lump")) restore(saved);
+    else startChoice();
     kick();
   }
   // Первый вход: ком падает на круг, когда уходит заставка, а не под ней

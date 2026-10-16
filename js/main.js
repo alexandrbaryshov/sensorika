@@ -164,3 +164,41 @@
   var mob = document.querySelector(".nav-mobile");
   if (mob) mob.addEventListener("click", function (e) { if (e.target.closest("a")) mob.open = false; });
 })();
+
+/* Обновили страницу — остаёмся там же, где были.
+   Сам браузер при перезагрузке то прыгает к якорю из адреса (после «Сертификатов» в меню в адресе остаётся #gift),
+   то возвращает устаревшее место (Chrome запоминает прокрутку с задержкой). Поэтому место запоминаем сами — только
+   в этой вкладке — и ставим его, когда страница собралась: здесь, после наполнения из data/site.js, и ещё раз после загрузки. */
+(function () {
+  "use strict";
+  var KEY = "sensorika:scroll", path = location.pathname;
+  if (!("scrollRestoration" in history)) return;
+  history.scrollRestoration = "manual";
+  function remember() {
+    try { sessionStorage.setItem(KEY, JSON.stringify({ y: Math.round(window.scrollY), path: path })); } catch (e) {}
+  }
+  var timer = 0;
+  window.addEventListener("scroll", function () { if (!timer) timer = setTimeout(function () { timer = 0; remember(); }, 250); }, { passive: true });
+  window.addEventListener("pagehide", remember);
+
+  var nav = performance.getEntriesByType && performance.getEntriesByType("navigation")[0];
+  // перезагрузка или возврат «Назад» на страницу, которую браузер не держал в памяти
+  var reload = nav ? nav.type === "reload" || nav.type === "back_forward" : performance.navigation && performance.navigation.type > 0;
+  var saved = null;
+  try { saved = JSON.parse(sessionStorage.getItem(KEY) || "null"); } catch (e) {}
+  if (!reload || !saved || saved.path !== path) return;
+  // пока человек сам не тронул страницу, держим её на запомненном месте (после загрузки шрифтов и фото вёрстка чуть сдвигается)
+  var touched = false;
+  ["wheel", "touchstart", "keydown", "mousedown"].forEach(function (t) { window.addEventListener(t, function () { touched = true; }, { once: true, passive: true }); });
+  function put() {
+    if (touched) return;
+    var html = document.documentElement, sb = html.style.scrollBehavior;
+    html.style.scrollBehavior = "auto"; // без плавной прокрутки из CSS: страница сразу на месте
+    window.scrollTo(0, saved.y);
+    html.style.scrollBehavior = sb;
+  }
+  put();
+  if (document.readyState === "complete") setTimeout(put, 0);
+  else window.addEventListener("load", function () { setTimeout(put, 0); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(put);
+})();
